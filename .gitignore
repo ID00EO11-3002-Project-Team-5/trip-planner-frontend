@@ -32,3 +32,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+ 
+# docs (local reviews not tracked)
+docs/Schema_Recommendations.md
