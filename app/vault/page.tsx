@@ -26,21 +26,23 @@ export default function VaultPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Vault</h1>
-      <p className="text-gray-600 text-sm">Store boarding passes, photos, and docs. Configure Supabase Storage to enable uploads.</p>
-      <div className="rounded border p-4 space-y-3">
+    <div className="space-y-6">
+      <h1 className="section-title">Vault</h1>
+      <p className="text-slate-600 text-sm dark:text-slate-300">Store boarding passes, photos, and docs. Configure Supabase Storage to enable uploads.</p>
+      <div className="glass-card p-6 space-y-4">
         <input
           type="file"
           multiple
           onChange={(e) => setFiles(Array.from(e.target.files || []))}
         />
-        <button className="rounded border px-3 py-2 text-sm" onClick={onUpload}>
-          Upload
-        </button>
-        {status && <div className="text-sm text-gray-700">{status}</div>}
+        <div className="flex items-center gap-3">
+          <button className="btn-primary text-sm" onClick={onUpload}>
+            Upload
+          </button>
+          {status && <div className="text-sm text-slate-700">{status}</div>}
+        </div>
         {!!files.length && (
-          <ul className="text-sm text-gray-600 list-disc pl-5">
+          <ul className="text-sm text-slate-600 dark:text-slate-300 list-disc pl-5">
             {files.map((f) => (
               <li key={f.name}>{f.name} • {(f.size / 1024).toFixed(1)} KB</li>
             ))}

@@ -13,16 +13,16 @@ export function ChatBox() {
     setText('')
   }
   return (
-    <div className="rounded border p-4 space-y-3">
+    <div className="space-y-4">
       <div className="font-medium">Chat</div>
-      <div className="h-40 overflow-auto rounded border p-2 text-sm bg-gray-50">
+      <div className="h-40 overflow-auto rounded-xl border border-slate-200/60 p-3 text-sm bg-white/70 dark:border-slate-700 dark:bg-slate-800/70">
         {messages.map((m,i)=> (
           <div key={i} className="py-1">{m}</div>
         ))}
       </div>
       <div className="flex gap-2">
-        <input className="flex-1 rounded border px-2 py-1" value={text} onChange={e=>setText(e.target.value)} placeholder="Type a message" />
-        <button className="rounded border px-3 py-1 text-sm" onClick={send}>Send</button>
+        <input className="input flex-1" value={text} onChange={e=>setText(e.target.value)} placeholder="Type a message" />
+        <button className="btn-primary" onClick={send}>Send</button>
       </div>
     </div>
   )

@@ -2,10 +2,15 @@
 import { useEffect, useRef, useState } from 'react'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { supabase } from '../lib/supabaseClient'
+import { Skeleton } from './Skeleton'
 
 export default function Map() {
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const mapRef = useRef<any>(null)
   const [ready, setReady] = useState(false)
+  const [mode, setMode] = useState<'none' | 'origin' | 'destination'>('none')
+  const [origin, setOrigin] = useState<[number, number] | null>(null)
+  const [destination, setDestination] = useState<[number, number] | null>(null)
 
   useEffect(() => {
     let map: any
@@ -23,15 +28,19 @@ export default function Map() {
         center: [-73.985664, 40.748514],
         zoom: 11
       })
+      mapRef.current = map
 
       map.addControl(new mapboxgl.NavigationControl(), 'top-right')
 
       map.on('click', (e: any) => {
-        new mapboxgl.Marker().setLngLat(e.lngLat).addTo(map)
-        // Broadcast to realtime channel if configured
-        try {
-          channel?.send({ type: 'broadcast', event: 'marker-added', payload: e.lngLat })
-        } catch {}
+        if (mode === 'origin') {
+          setOrigin([e.lngLat.lng, e.lngLat.lat])
+        } else if (mode === 'destination') {
+          setDestination([e.lngLat.lng, e.lngLat.lat])
+        } else {
+          new mapboxgl.Marker().setLngLat(e.lngLat).addTo(map)
+          try { channel?.send({ type: 'broadcast', event: 'marker-added', payload: e.lngLat }) } catch {}
+        }
       })
 
       // Optional realtime channel
@@ -50,17 +59,85 @@ export default function Map() {
       setReady(true)
     }
     init()
+    function onRouteSetPoint(ev: any) {
+      try {
+        const detail = ev.detail as { type: 'origin'|'destination', coords: [number, number] }
+        if (!detail || !detail.coords) return
+        if (detail.type === 'origin') setOrigin(detail.coords)
+        else if (detail.type === 'destination') setDestination(detail.coords)
+      } catch {}
+    }
+    window.addEventListener('route-set-point', onRouteSetPoint as any)
     return () => {
       try { map?.remove?.() } catch {}
       try { channel?.unsubscribe?.() } catch {}
+      window.removeEventListener('route-set-point', onRouteSetPoint as any)
     }
   }, [])
 
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !origin || !destination) return
+    try { if (map.getLayer('route')) map.removeLayer('route') } catch {}
+    try { if (map.getSource('route')) map.removeSource('route') } catch {}
+    const geojson = {
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: [origin, destination] },
+      properties: {}
+    }
+    try {
+      map.addSource('route', { type: 'geojson', data: geojson })
+      map.addLayer({
+        id: 'route',
+        type: 'line',
+        source: 'route',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': '#0f172a', 'line-width': 4 }
+      })
+    } catch {}
+  }, [origin, destination])
+
+  function clearRoute() {
+    setOrigin(null)
+    setDestination(null)
+    const map = mapRef.current
+    try { if (map.getLayer('route')) map.removeLayer('route') } catch {}
+    try { if (map.getSource('route')) map.removeSource('route') } catch {}
+  }
+
+  function distKm(a: [number, number], b: [number, number]) {
+    const R = 6371
+    const dLat = (b[1] - a[1]) * Math.PI / 180
+    const dLon = (b[0] - a[0]) * Math.PI / 180
+    const lat1 = a[1] * Math.PI / 180
+    const lat2 = b[1] * Math.PI / 180
+    const sinDLat = Math.sin(dLat/2)
+    const sinDLon = Math.sin(dLon/2)
+    const h = sinDLat*sinDLat + Math.cos(lat1)*Math.cos(lat2)*sinDLon*sinDLon
+    return 2 * R * Math.asin(Math.sqrt(h))
+  }
+
   return (
-    <div className="h-[70vh] w-full rounded-lg border overflow-hidden">
+    <div className="relative h-[70vh] w-full rounded-xl overflow-hidden">
       <div ref={containerRef} className="h-full w-full" />
+      <div className="absolute top-3 left-3 glass-card px-3 py-2 text-sm flex items-center gap-2">
+        <button className={`btn-secondary text-xs ${mode==='origin' ? 'ring-2 ring-slate-400' : ''}`} onClick={()=>setMode('origin')}>Set Origin</button>
+        <button className={`btn-secondary text-xs ${mode==='destination' ? 'ring-2 ring-slate-400' : ''}`} onClick={()=>setMode('destination')}>Set Destination</button>
+        <button className="btn-secondary text-xs" onClick={()=>setMode('none')}>Done</button>
+        <button className="btn-primary text-xs" onClick={clearRoute}>Clear Route</button>
+      </div>
+      {origin && destination && (
+        <div className="absolute bottom-3 left-3 glass-card px-3 py-2 text-sm">
+          <div>Distance: {distKm(origin, destination).toFixed(2)} km</div>
+        </div>
+      )}
       {!ready && (
-        <div className="p-3 text-sm text-gray-600">Loading map…</div>
+        <div className="absolute inset-0 p-3">
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-1/3" />
+            <Skeleton className="h-[60vh] w-full" />
+          </div>
+        </div>
       )}
     </div>
   )

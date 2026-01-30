@@ -19,3 +19,29 @@ body {
 .container {
   @apply mx-auto px-4;
 }
+
+@layer components {
+  .glass-card {
+    @apply rounded-2xl border border-slate-200/60 bg-white/70 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-slate-700 dark:bg-slate-800/70 dark:supports-[backdrop-filter]:bg-slate-800/60;
+  }
+
+  .section-title {
+    @apply text-2xl md:text-3xl font-semibold tracking-tight;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium shadow hover:bg-slate-800 transition-colors dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white/70 px-4 py-2 text-sm font-medium text-slate-900 shadow-sm hover:bg-white transition dark:border-slate-600 dark:bg-slate-800/70 dark:text-slate-100 dark:hover:bg-slate-700;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-slate-300 bg-white/70 px-3 py-2 text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400 dark:border-slate-600 dark:bg-slate-800/70 dark:text-slate-100 dark:focus:ring-slate-500 dark:focus:border-slate-500;
+  }
+
+  .pill {
+    @apply inline-flex items-center rounded-full bg-slate-900/5 text-slate-700 px-3 py-1 text-xs font-medium border border-slate-200 dark:bg-slate-100/10 dark:text-slate-200 dark:border-slate-700;
+  }
+}
