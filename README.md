@@ -1,6 +1,6 @@
-# Trip Planner Frontend
+# eztrippin
 
-A Next.js + TypeScript web app to help groups of friends plan trips collaboratively: shared map planning, real-time sync, expense splitting, and a shared vault.
+A Next.js + TypeScript web app to help groups of friends plan trips the easy way: shared map planning, real-time sync, expense splitting, and a shared vault.
 
 ## Features
 
