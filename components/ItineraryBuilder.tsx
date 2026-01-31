@@ -141,15 +141,17 @@ export function ItineraryBuilder({ onChange }: { onChange?: (items: Activity[]) 
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h3 className="font-medium">The Builder</h3>
-        <div className="flex items-center gap-2">
-          <input className="input w-48" placeholder="Search" value={search} onChange={e=>setSearch(e.target.value)} />
-          <select className="input w-36" value={tagFilter} onChange={e=>setTagFilter(e.target.value)}>
-            <option value="">All tags</option>
-            {tags.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <button className="btn-secondary text-xs" onClick={add}>Add Activity</button>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="flex gap-2">
+            <input className="input flex-1 sm:w-36 lg:w-48" placeholder="Search" value={search} onChange={e=>setSearch(e.target.value)} />
+            <select className="input flex-1 sm:w-28 lg:w-36" value={tagFilter} onChange={e=>setTagFilter(e.target.value)}>
+              <option value="">All tags</option>
+              {tags.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <button className="btn-secondary text-xs whitespace-nowrap" onClick={add}>Add Activity</button>
         </div>
       </div>
 
@@ -168,7 +170,7 @@ export function ItineraryBuilder({ onChange }: { onChange?: (items: Activity[]) 
                   return (
                     <div
                       key={a.id}
-                      className="rounded-xl border border-slate-200/60 bg-white/70 p-3 grid md:grid-cols-5 gap-2 dark:border-slate-700 dark:bg-slate-800/70"
+                      className="rounded-xl border border-slate-200/60 bg-white/70 p-3 space-y-2 md:space-y-0 md:grid md:grid-cols-5 md:gap-2 dark:border-slate-700 dark:bg-slate-800/70"
                       draggable
                       onDragStart={() => onDragStart(a.id)}
                       onDragOver={(e) => e.preventDefault()}
@@ -180,8 +182,10 @@ export function ItineraryBuilder({ onChange }: { onChange?: (items: Activity[]) 
                       }}
                     >
                       <input className="input" placeholder="Activity Title" value={a.title} onChange={e=>update(i,'title',e.target.value)} />
-                      <input className="input" placeholder="Date" value={a.date} onChange={e=>update(i,'date',e.target.value)} />
-                      <input className="input" placeholder="Time" value={a.time} onChange={e=>update(i,'time',e.target.value)} />
+                      <div className="grid grid-cols-2 gap-2 md:contents">
+                        <input className="input" placeholder="Date" value={a.date} onChange={e=>update(i,'date',e.target.value)} />
+                        <input className="input" placeholder="Time" value={a.time} onChange={e=>update(i,'time',e.target.value)} />
+                      </div>
                       <input className="input" placeholder="Location" value={a.location} onChange={e=>update(i,'location',e.target.value)} />
                       <div className="grid grid-cols-2 gap-2">
                         <input className="input" placeholder="Cost Tag" value={a.costTag || ''} onChange={e=>update(i,'costTag',e.target.value)} />
@@ -190,10 +194,10 @@ export function ItineraryBuilder({ onChange }: { onChange?: (items: Activity[]) 
                       <div className="grid grid-cols-2 gap-2 md:col-span-5">
                         <input className="input" type="number" step="0.0001" placeholder="Lng" value={a.lng ?? ''} onChange={e=>update(i,'lng',e.target.value)} />
                         <input className="input" type="number" step="0.0001" placeholder="Lat" value={a.lat ?? ''} onChange={e=>update(i,'lat',e.target.value)} />
-                        <div className="flex items-center gap-2">
-                          <button className="btn-secondary text-xs" onClick={()=>dispatchRoutePoint(a,'origin')}>Use as Origin</button>
-                          <button className="btn-secondary text-xs" onClick={()=>dispatchRoutePoint(a,'destination')}>Use as Destination</button>
-                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 md:col-span-5">
+                        <button className="btn-secondary text-xs flex-1 sm:flex-none" onClick={()=>dispatchRoutePoint(a,'origin')}>Use as Origin</button>
+                        <button className="btn-secondary text-xs flex-1 sm:flex-none" onClick={()=>dispatchRoutePoint(a,'destination')}>Use as Destination</button>
                       </div>
                     </div>
                   )

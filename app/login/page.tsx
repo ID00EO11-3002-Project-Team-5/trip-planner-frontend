@@ -5,9 +5,9 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   return (
-    <div className="max-w-md mx-auto space-y-6">
+    <div className="max-w-md mx-auto space-y-6 px-4 sm:px-0">
       <div className="text-center space-y-2">
-        <div className="section-title">Trip Planner</div>
+        <div className="section-title">eztrippin</div>
         <div className="text-sm text-slate-600 dark:text-slate-300">Welcome back</div>
       </div>
       <div className="glass-card p-6 space-y-4">

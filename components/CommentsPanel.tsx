@@ -44,24 +44,24 @@ export function CommentsPanel({ tripId }: { tripId: string }) {
   }
 
   return (
-    <div className="glass-card p-6 space-y-5">
+    <div className="glass-card p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-5">
       <div className="flex items-center justify-between">
         <div className="card-title flex items-center gap-2">
-          <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
-          Comments
+          <svg className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
+          <span className="text-base sm:text-lg">Comments</span>
         </div>
-        <span className="text-xs text-slate-400">{comments.length} comments</span>
+        <span className="text-[10px] sm:text-xs text-slate-400">{comments.length} comments</span>
       </div>
       
-      <div className="space-y-3">
-        <div className="flex gap-3">
+      <div className="space-y-2 sm:space-y-3">
+        <div className="flex gap-2 sm:gap-3">
           <div className="flex-1">
-            <textarea className="input" rows={2} value={text} onChange={e => setText(e.target.value)} placeholder="Share an update or idea..." />
+            <textarea className="input text-sm" rows={2} value={text} onChange={e => setText(e.target.value)} placeholder="Share an update or idea..." />
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <input className="input flex-1" value={author} onChange={e => setAuthor(e.target.value)} placeholder="Your name (optional)" />
-          <button className="btn-primary" onClick={addComment}>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+          <input className="input flex-1 text-sm" value={author} onChange={e => setAuthor(e.target.value)} placeholder="Your name (optional)" />
+          <button className="btn-primary text-sm" onClick={addComment}>
             <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
             Post
           </button>

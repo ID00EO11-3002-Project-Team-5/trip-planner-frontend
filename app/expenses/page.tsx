@@ -10,10 +10,10 @@ export default function ExpensesPage() {
   const { show } = useToast();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <h1 className="section-title">Expenses</h1>
-      <div className="grid gap-6 md:grid-cols-[1fr,1fr]">
-        <div className="glass-card p-6 space-y-3">
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
+        <div className="glass-card p-4 sm:p-6 space-y-3">
           <label className="block text-sm font-medium">Total amount</label>
           <input
             className="input"
@@ -37,7 +37,7 @@ export default function ExpensesPage() {
             />
           ))}
           <button
-            className="mt-2 btn-secondary text-sm"
+            className="mt-2 btn-secondary text-sm w-full sm:w-auto"
             onClick={() => {
               setNames((prev) => [...prev, ""]);
               show("Participant added");
@@ -45,18 +45,18 @@ export default function ExpensesPage() {
           >Add participant</button>
         </div>
         <div className="space-y-2">
-          <div className="glass-card p-6">
+          <div className="glass-card p-4 sm:p-6">
             <h2 className="font-medium mb-3">Split</h2>
             <ul className="rounded-xl border border-slate-200/60 divide-y divide-slate-200/60 bg-white/70 shadow-sm dark:border-slate-700 dark:divide-slate-700 dark:bg-slate-800/70">
               {shares.map((s) => (
-                <li key={s.name} className="flex items-center justify-between px-4 py-3">
-                  <span>{s.name || <em className="text-slate-500">Unnamed</em>}</span>
-                  <span className="tabular-nums">${s.share}</span>
+                <li key={s.name} className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3">
+                  <span className="text-sm sm:text-base">{s.name || <em className="text-slate-500">Unnamed</em>}</span>
+                  <span className="tabular-nums text-sm sm:text-base">${s.share}</span>
                 </li>
               ))}
             </ul>
           </div>
-          <p className="text-xs text-slate-600 dark:text-slate-300">
+          <p className="text-xs text-slate-600 dark:text-slate-300 px-1">
             Equal split rounded to cents with fair distribution of remainders.
           </p>
         </div>

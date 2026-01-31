@@ -71,9 +71,9 @@ export function DocumentVault() {
       
       <div className="grid grid-cols-3 gap-2 mt-4">
         {categories.map(c => (
-          <div key={c.name} className={`rounded-xl border bg-gradient-to-br ${c.color} p-3 text-center`}>
-            <div className="text-lg mb-1">{c.icon}</div>
-            <div className="text-xs font-medium text-slate-600 dark:text-slate-300">{c.name}</div>
+          <div key={c.name} className={`rounded-xl border bg-gradient-to-br ${c.color} p-2 sm:p-3 text-center`}>
+            <div className="text-base sm:text-lg mb-0.5 sm:mb-1">{c.icon}</div>
+            <div className="text-[10px] sm:text-xs font-medium text-slate-600 dark:text-slate-300 truncate">{c.name}</div>
           </div>
         ))}
       </div>
