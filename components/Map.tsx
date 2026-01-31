@@ -118,13 +118,13 @@ export default function Map() {
   }
 
   return (
-    <div className="relative h-[70vh] w-full rounded-xl overflow-hidden">
+    <div className="relative aspect-[4/3] w-full rounded-xl overflow-hidden">
       <div ref={containerRef} className="h-full w-full" />
-      <div className="absolute top-3 left-3 glass-card px-3 py-2 text-sm flex items-center gap-2">
-        <button className={`btn-secondary text-xs ${mode==='origin' ? 'ring-2 ring-slate-400' : ''}`} onClick={()=>setMode('origin')}>Set Origin</button>
-        <button className={`btn-secondary text-xs ${mode==='destination' ? 'ring-2 ring-slate-400' : ''}`} onClick={()=>setMode('destination')}>Set Destination</button>
-        <button className="btn-secondary text-xs" onClick={()=>setMode('none')}>Done</button>
-        <button className="btn-primary text-xs" onClick={clearRoute}>Clear Route</button>
+      <div className="absolute top-2 left-2 right-2 flex flex-wrap items-center gap-1.5">
+        <button className={`btn-secondary text-xs px-2 py-1 ${mode==='origin' ? 'ring-2 ring-slate-400' : ''}`} onClick={()=>setMode('origin')}>Set Origin</button>
+        <button className={`btn-secondary text-xs px-2 py-1 ${mode==='destination' ? 'ring-2 ring-slate-400' : ''}`} onClick={()=>setMode('destination')}>Set Dest</button>
+        <button className="btn-secondary text-xs px-2 py-1" onClick={()=>setMode('none')}>Done</button>
+        <button className="btn-primary text-xs px-2 py-1" onClick={clearRoute}>Clear</button>
       </div>
       {origin && destination && (
         <div className="absolute bottom-3 left-3 glass-card px-3 py-2 text-sm">
@@ -132,10 +132,10 @@ export default function Map() {
         </div>
       )}
       {!ready && (
-        <div className="absolute inset-0 p-3">
-          <div className="space-y-2">
-            <Skeleton className="h-6 w-1/3" />
-            <Skeleton className="h-[60vh] w-full" />
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-100 dark:bg-slate-800">
+          <div className="text-center space-y-2">
+            <div className="w-8 h-8 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin mx-auto" />
+            <div className="text-sm text-slate-500">Loading map...</div>
           </div>
         </div>
       )}
