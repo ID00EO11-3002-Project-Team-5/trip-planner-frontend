@@ -14,10 +14,27 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-900 dark:via-slate-800 dark:to-slate-700 text-slate-900 dark:text-slate-100 antialiased">
         <Navbar />
         <ToastProvider>
-          <main className="container max-w-7xl flex-1 py-10">{children}</main>
+          <main className="container max-w-7xl flex-1 py-8">{children}</main>
         </ToastProvider>
-        <footer className="mt-8 border-t bg-white/70 dark:bg-slate-800/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-slate-800/60 py-4 text-sm text-slate-600 dark:text-slate-300">
-          <div className="container max-w-7xl">© {new Date().getFullYear()} Trip Planner</div>
+        <footer className="mt-auto border-t border-slate-200/60 bg-white/60 dark:bg-slate-800/60 dark:border-slate-700/60 backdrop-blur-lg">
+          <div className="container max-w-7xl py-8">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                <div className="w-6 h-6 rounded-lg bg-slate-900 dark:bg-slate-100 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white dark:text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+                <span className="font-medium text-slate-900 dark:text-slate-100">Trip Planner</span>
+              </div>
+              <div className="flex items-center gap-6 text-sm text-slate-500 dark:text-slate-400">
+                <a href="#" className="hover:text-slate-900 dark:hover:text-slate-100 transition-colors">About</a>
+                <a href="#" className="hover:text-slate-900 dark:hover:text-slate-100 transition-colors">Privacy</a>
+                <a href="#" className="hover:text-slate-900 dark:hover:text-slate-100 transition-colors">Terms</a>
+              </div>
+              <div className="text-sm text-slate-400 dark:text-slate-500">
+                © {new Date().getFullYear()} Trip Planner. All rights reserved.
+              </div>
+            </div>
+          </div>
         </footer>
       </body>
     </html>
