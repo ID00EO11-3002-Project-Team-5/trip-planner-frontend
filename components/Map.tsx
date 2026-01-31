@@ -118,13 +118,13 @@ export default function Map() {
   }
 
   return (
-    <div className="relative aspect-[4/3] w-full rounded-xl overflow-hidden">
+    <div className="relative h-[400px] w-full rounded-xl overflow-hidden">
       <div ref={containerRef} className="h-full w-full" />
-      <div className="absolute top-2 left-2 right-2 flex flex-wrap items-center gap-1.5">
-        <button className={`btn-secondary text-xs px-2 py-1 ${mode==='origin' ? 'ring-2 ring-slate-400' : ''}`} onClick={()=>setMode('origin')}>Set Origin</button>
-        <button className={`btn-secondary text-xs px-2 py-1 ${mode==='destination' ? 'ring-2 ring-slate-400' : ''}`} onClick={()=>setMode('destination')}>Set Dest</button>
-        <button className="btn-secondary text-xs px-2 py-1" onClick={()=>setMode('none')}>Done</button>
-        <button className="btn-primary text-xs px-2 py-1" onClick={clearRoute}>Clear</button>
+      <div className="absolute top-3 left-3 flex flex-wrap items-center gap-2">
+        <button className={`btn-secondary text-xs px-3 py-1.5 ${mode==='origin' ? 'ring-2 ring-slate-400' : ''}`} onClick={()=>setMode('origin')}>Set Origin</button>
+        <button className={`btn-secondary text-xs px-3 py-1.5 ${mode==='destination' ? 'ring-2 ring-slate-400' : ''}`} onClick={()=>setMode('destination')}>Set Destination</button>
+        <button className="btn-secondary text-xs px-3 py-1.5" onClick={()=>setMode('none')}>Done</button>
+        <button className="btn-primary text-xs px-3 py-1.5" onClick={clearRoute}>Clear Route</button>
       </div>
       {origin && destination && (
         <div className="absolute bottom-3 left-3 glass-card px-3 py-2 text-sm">
