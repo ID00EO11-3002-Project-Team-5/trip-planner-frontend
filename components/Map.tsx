@@ -7,10 +7,16 @@ import { Skeleton } from './Skeleton'
 export default function Map() {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
+  const modeRef = useRef<'none' | 'origin' | 'destination'>('none')
   const [ready, setReady] = useState(false)
   const [mode, setMode] = useState<'none' | 'origin' | 'destination'>('none')
   const [origin, setOrigin] = useState<[number, number] | null>(null)
   const [destination, setDestination] = useState<[number, number] | null>(null)
+
+  // Keep modeRef in sync with mode
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
 
   useEffect(() => {
     let map: any
@@ -33,9 +39,9 @@ export default function Map() {
       map.addControl(new mapboxgl.NavigationControl(), 'top-right')
 
       map.on('click', (e: any) => {
-        if (mode === 'origin') {
+        if (modeRef.current === 'origin') {
           setOrigin([e.lngLat.lng, e.lngLat.lat])
-        } else if (mode === 'destination') {
+        } else if (modeRef.current === 'destination') {
           setDestination([e.lngLat.lng, e.lngLat.lat])
         } else {
           new mapboxgl.Marker().setLngLat(e.lngLat).addTo(map)
