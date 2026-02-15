@@ -2,6 +2,7 @@ import "./globals.css";
 import { ReactNode } from "react";
 import { Navbar } from "../components/Navbar";
 import { ToastProvider } from "../components/ToastProvider";
+import { AuthProvider } from "../lib/authContext";
 
 export const metadata = {
   title: "eztrippin",
@@ -12,10 +13,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body className="min-h-screen flex flex-col bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100 antialiased">
-        <Navbar />
-        <ToastProvider>
-          <main className="container max-w-7xl flex-1 py-4 md:py-6 lg:py-8">{children}</main>
-        </ToastProvider>
+        <AuthProvider>
+          <Navbar />
+          <ToastProvider>
+            <main className="container max-w-7xl flex-1 py-4 md:py-6 lg:py-8">{children}</main>
+          </ToastProvider>
+        </AuthProvider>
         <footer className="mt-auto border-t border-slate-200/60 bg-white/60 dark:bg-slate-800/60 dark:border-slate-700/60 backdrop-blur-lg">
           <div className="container max-w-7xl py-6 sm:py-8">
             <div className="flex flex-col items-center gap-4 text-center md:flex-row md:justify-between md:text-left">

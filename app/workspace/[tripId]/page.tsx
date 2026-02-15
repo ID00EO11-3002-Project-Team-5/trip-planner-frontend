@@ -6,23 +6,73 @@ import { ChatBox } from '../../../components/ChatBox'
 import { TripHeader } from '../../../components/TripHeader'
 import { CommentsPanel } from '../../../components/CommentsPanel'
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+async function getTripData(tripId: string) {
+  try {
+    const response = await fetch(`${API_URL}/trips/${tripId}`, {
+      cache: 'no-store', // Disable caching for real-time data
+      headers: {
+        'Content-Type': 'application/json',
+        // Add Authorization header if you have token in cookies
+      },
+    });
+    
+    if (!response.ok) {
+      console.error('Failed to fetch trip data');
+      return null;
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching trip:', error);
+    return null;
+  }
+}
+
 export default async function WorkspacePage({ params }: { params: Promise<{ tripId: string }> }) {
   const { tripId } = await params
+  
+  // Fetch trip data from backend
+  const tripData = await getTripData(tripId);
+  
+  // Fallback data if API call fails
   const participants = ['Alex', 'Jordan', 'Pax']
   const total = 2400
+  
   return (
     <div className="space-y-4 sm:space-y-6 md:space-y-8">
       {/* Header Section */}
       <div className="space-y-3 sm:space-y-4">
         <TripHeader tripId={tripId} />
+        
+        {/* Show connection status */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            Live sync
+            <span className={`h-2 w-2 rounded-full ${tripData ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`} />
+            {tripData ? 'Connected to backend' : 'Using mock data'}
           </div>
           <span className="text-slate-300 dark:text-slate-600">•</span>
           <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">{participants.length} collaborators</span>
         </div>
+        
+        {/* Show trip info if available */}
+        {tripData && (
+          <div className="glass-card p-3 sm:p-4">
+            <h2 className="font-semibold text-lg">{tripData.name || 'Untitled Trip'}</h2>
+            {tripData.description && (
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{tripData.description}</p>
+            )}
+            {tripData.destination && (
+              <p className="text-sm text-slate-500 mt-1">📍 {tripData.destination}</p>
+            )}
+            {tripData.start_date && tripData.end_date && (
+              <p className="text-sm text-slate-500 mt-1">
+                🗓️ {new Date(tripData.start_date).toLocaleDateString()} - {new Date(tripData.end_date).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+        )}
       </div>
       
       {/* Itinerary - Full Width */}
