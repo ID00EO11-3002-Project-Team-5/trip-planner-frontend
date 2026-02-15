@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 
 type Activity = { id: string; title: string; date: string; time: string; location: string; costTag?: string; cost?: string; lng?: number; lat?: number }
 
@@ -13,16 +13,24 @@ export function ItineraryBuilder({ onChange }: { onChange?: (items: Activity[]) 
   const [search, setSearch] = useState('');
   const [tagFilter, setTagFilter] = useState<string>('');
   const [activeId, setActiveId] = useState<string | null>(null);
+  const isInitialized = useRef(false);
 
   // Load from localStorage after mount to avoid hydration mismatch
   useEffect(() => {
+    if (isInitialized.current) return;
+    isInitialized.current = true;
+    
     try {
       const storedItems = localStorage.getItem('itinerary_items');
       const storedSearch = localStorage.getItem('itinerary_search');
       const storedTag = localStorage.getItem('itinerary_tag');
-      if (storedItems) setItems(JSON.parse(storedItems));
-      if (storedSearch) setSearch(storedSearch);
-      if (storedTag) setTagFilter(storedTag);
+      
+      // Use requestAnimationFrame to defer state updates
+      requestAnimationFrame(() => {
+        if (storedItems) setItems(JSON.parse(storedItems));
+        if (storedSearch) setSearch(storedSearch);
+        if (storedTag) setTagFilter(storedTag);
+      });
     } catch {}
   }, []);
 

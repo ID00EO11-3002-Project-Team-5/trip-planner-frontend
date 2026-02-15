@@ -16,12 +16,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !!supabase);
 
   useEffect(() => {
     if (!supabase) {
       console.error('Supabase client not initialized. Check environment variables.');
-      setLoading(false);
       return;
     }
 

@@ -1,18 +1,26 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 export function ThemeToggle() {
   const [isDark, setIsDark] = useState<boolean>(false);
   const [mounted, setMounted] = useState(false);
+  const isInitialized = useRef(false);
 
   useEffect(() => {
+    if (isInitialized.current) return;
+    isInitialized.current = true;
+    
     // Initialize theme after mount to avoid hydration mismatch
     const stored = localStorage.getItem("theme");
     const preferDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     const initialDark = stored ? stored === 'dark' : preferDark;
-    setIsDark(initialDark);
     document.documentElement.classList.toggle('dark', initialDark);
-    setMounted(true);
+    
+    // Use requestAnimationFrame to defer state updates
+    requestAnimationFrame(() => {
+      setIsDark(initialDark);
+      setMounted(true);
+    });
   }, []);
 
   function toggle() {
