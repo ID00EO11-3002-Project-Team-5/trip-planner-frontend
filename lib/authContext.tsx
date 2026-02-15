@@ -19,9 +19,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!supabase) {
+      console.error('Supabase client not initialized. Check environment variables.');
+      setLoading(false);
+      return;
+    }
+
     // Check active session on mount
     supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
       setUser(data.session?.user ?? null);
+      setLoading(false);
+    }).catch((error) => {
+      console.error('Error getting session:', error);
       setLoading(false);
     });
 
@@ -36,6 +45,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, name?: string) => {
+    if (!supabase) {
+      return { error: 'Authentication service not available' };
+    }
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -63,6 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
+    if (!supabase) {
+      return { error: 'Authentication service not available' };
+    }
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -85,6 +100,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    if (!supabase) {
+      localStorage.removeItem('authToken');
+      setUser(null);
+      return;
+    }
     await supabase.auth.signOut();
     localStorage.removeItem('authToken');
     setUser(null);

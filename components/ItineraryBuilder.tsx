@@ -3,41 +3,28 @@ import { useEffect, useMemo, useState } from 'react'
 
 type Activity = { id: string; title: string; date: string; time: string; location: string; costTag?: string; cost?: string; lng?: number; lat?: number }
 
-export function ItineraryBuilder({ onChange }: { onChange?: (items: Activity[]) => void }) {
-  const [items, setItems] = useState<Activity[]>(() => {
-    try {
-      const storedItems = typeof window !== 'undefined' ? localStorage.getItem('itinerary_items') : null;
-      return storedItems ? JSON.parse(storedItems) : [
-        { id: 'a1', title: 'Brunch', date: 'Jun 7', time: '10:00', location: 'Lisboa', costTag: 'Food', cost: '25.00' },
-        { id: 'a2', title: 'Castle Tour', date: 'Jun 7', time: '14:00', location: 'Sintra', costTag: 'Attraction', cost: '18.00' },
-      ];
-    } catch {
-      return [
-        { id: 'a1', title: 'Brunch', date: 'Jun 7', time: '10:00', location: 'Lisboa', costTag: 'Food', cost: '25.00' },
-        { id: 'a2', title: 'Castle Tour', date: 'Jun 7', time: '14:00', location: 'Sintra', costTag: 'Attraction', cost: '18.00' },
-      ];
-    }
-  });
-  const [search, setSearch] = useState(() => {
-    try {
-      return typeof window !== 'undefined' ? localStorage.getItem('itinerary_search') || '' : '';
-    } catch {
-      return '';
-    }
-  });
-  const [tagFilter, setTagFilter] = useState<string>(() => {
-    try {
-      return typeof window !== 'undefined' ? localStorage.getItem('itinerary_tag') || '' : '';
-    } catch {
-      return '';
-    }
-  });
-  const [activeId, setActiveId] = useState<string | null>(null)
+const defaultItems: Activity[] = [
+  { id: 'a1', title: 'Brunch', date: 'Jun 7', time: '10:00', location: 'Lisboa', costTag: 'Food', cost: '25.00' },
+  { id: 'a2', title: 'Castle Tour', date: 'Jun 7', time: '14:00', location: 'Sintra', costTag: 'Attraction', cost: '18.00' },
+];
 
-  // Persist state to localStorage - initialization handled in useState
+export function ItineraryBuilder({ onChange }: { onChange?: (items: Activity[]) => void }) {
+  const [items, setItems] = useState<Activity[]>(defaultItems);
+  const [search, setSearch] = useState('');
+  const [tagFilter, setTagFilter] = useState<string>('');
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  // Load from localStorage after mount to avoid hydration mismatch
   useEffect(() => {
-    // Initial load handled by lazy state initialization
-  }, [])
+    try {
+      const storedItems = localStorage.getItem('itinerary_items');
+      const storedSearch = localStorage.getItem('itinerary_search');
+      const storedTag = localStorage.getItem('itinerary_tag');
+      if (storedItems) setItems(JSON.parse(storedItems));
+      if (storedSearch) setSearch(storedSearch);
+      if (storedTag) setTagFilter(storedTag);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     try { localStorage.setItem('itinerary_items', JSON.stringify(items)) } catch {}
