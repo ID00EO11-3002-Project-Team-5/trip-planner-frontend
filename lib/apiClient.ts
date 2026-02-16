@@ -121,16 +121,41 @@ export const tripsApi = {
 
 // ==================== EXPENSES API ====================
 
+export interface ExpenseShare {
+  id_user: string;
+  shareamount_exsh: number;
+}
+
+export interface ExpensePayer {
+  id_user: string;
+  payeramount_expa: number;
+}
+
 export interface Expense {
-  id: string;
-  trip_id: string;
-  description: string;
-  amount: number;
-  paid_by: string;
-  split_between: string[];
-  category?: string;
-  date?: string;
-  created_at?: string;
+  id_expe: string;
+  id_trip: string;
+  title_expe: string;
+  amount_expe: number;
+  currency_expe: 'USD' | 'EUR' | 'GBP';
+  createdat_expe: string;
+  created_by: string;
+  t_expense_share_exsh?: ExpenseShare[];
+  t_expense_payer_expa?: ExpensePayer[];
+}
+
+export interface CreateExpensePayload {
+  id_trip: string;
+  title_expe: string;
+  amount_expe: number;
+  currency_expe: 'USD' | 'EUR' | 'GBP';
+  shares: ExpenseShare[];
+}
+
+export interface UpdateExpensePayload {
+  title_expe?: string;
+  amount_expe?: number;
+  currency_expe?: 'USD' | 'EUR' | 'GBP';
+  shares?: ExpenseShare[];
 }
 
 export const expensesApi = {
@@ -138,14 +163,14 @@ export const expensesApi = {
     return apiCall(`/expenses?tripId=${tripId}`);
   },
 
-  create: async (expense: Partial<Expense>): Promise<Expense> => {
+  create: async (expense: CreateExpensePayload): Promise<Expense> => {
     return apiCall('/expenses', {
       method: 'POST',
       body: expense,
     });
   },
 
-  update: async (id: string, expense: Partial<Expense>): Promise<Expense> => {
+  update: async (id: string, expense: UpdateExpensePayload): Promise<Expense> => {
     return apiCall(`/expenses/${id}`, {
       method: 'PUT',
       body: expense,
