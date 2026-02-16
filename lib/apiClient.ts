@@ -79,14 +79,13 @@ export const authApi = {
 // ==================== TRIPS API ====================
 
 export interface Trip {
-  id: string;
-  name: string;
-  description?: string;
-  start_date?: string;
-  end_date?: string;
-  destination?: string;
-  created_at?: string;
-  updated_at?: string;
+  id_trip: string;
+  title_trip: string;
+  description_trip?: string | null;
+  startdate_trip: string;
+  enddate_trip: string;
+  id_user_creator: string;
+  createdat_trip?: string | null;
 }
 
 export const tripsApi = {
