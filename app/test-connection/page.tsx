@@ -42,10 +42,10 @@ export default function ConnectionTestPage() {
     setError('');
     try {
       const newTrip = await api.trips.create({
-        name: 'Test Trip',
-        description: 'Created from connection test',
-        destination: 'Test Destination',
-        start_date: new Date().toISOString(),
+        title_trip: 'Test Trip',
+        description_trip: 'Created from connection test',
+        startdate_trip: new Date().toISOString(),
+        enddate_trip: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       });
       setTrips([...trips, newTrip]);
     } catch (err: any) {
@@ -120,20 +120,20 @@ export default function ConnectionTestPage() {
               <div className="space-y-2">
                 {trips.map((trip) => (
                   <div 
-                    key={trip.id} 
+                    key={trip.id_trip} 
                     className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
                   >
-                    <div className="font-medium">{trip.name}</div>
+                    <div className="font-medium">{trip.title_trip}</div>
                     <div className="text-sm text-slate-600 dark:text-slate-400">
-                      {trip.description}
+                      {trip.description_trip}
                     </div>
-                    {trip.destination && (
+                    {trip.startdate_trip && trip.enddate_trip && (
                       <div className="text-sm text-slate-500 mt-1">
-                        📍 {trip.destination}
+                        🗓️ {new Date(trip.startdate_trip).toLocaleDateString()} - {new Date(trip.enddate_trip).toLocaleDateString()}
                       </div>
                     )}
                   </div>
-                ))}
+                ))}  
               </div>
             </div>
           )}

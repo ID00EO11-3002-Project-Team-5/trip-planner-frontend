@@ -59,16 +59,13 @@ export default async function WorkspacePage({ params }: { params: Promise<{ trip
         {/* Show trip info if available */}
         {tripData && (
           <div className="glass-card p-3 sm:p-4">
-            <h2 className="font-semibold text-lg">{tripData.name || 'Untitled Trip'}</h2>
-            {tripData.description && (
-              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{tripData.description}</p>
+            <h2 className="font-semibold text-lg">{tripData.title_trip || 'Untitled Trip'}</h2>
+            {tripData.description_trip && (
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{tripData.description_trip}</p>
             )}
-            {tripData.destination && (
-              <p className="text-sm text-slate-500 mt-1">📍 {tripData.destination}</p>
-            )}
-            {tripData.start_date && tripData.end_date && (
+            {tripData.startdate_trip && tripData.enddate_trip && (
               <p className="text-sm text-slate-500 mt-1">
-                🗓️ {new Date(tripData.start_date).toLocaleDateString()} - {new Date(tripData.end_date).toLocaleDateString()}
+                🗓️ {new Date(tripData.startdate_trip).toLocaleDateString()} - {new Date(tripData.enddate_trip).toLocaleDateString()}
               </p>
             )}
           </div>
