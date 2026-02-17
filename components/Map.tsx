@@ -12,6 +12,7 @@ export default function Map() {
   const mapRef = useRef<any>(null)
   const modeRef = useRef<'none' | 'origin' | 'destination'>('none')
   const markersRef = useRef<MarkerMap>(new globalThis.Map())  // Track destination stop markers
+  const stopsDataRef = useRef<Array<{ id: string; coords: [number, number] }>>([])  // Track stops in order
   const [ready, setReady] = useState(false)
   const [mode, setMode] = useState<'none' | 'origin' | 'destination'>('none')
   const [origin, setOrigin] = useState<[number, number] | null>(null)
@@ -91,6 +92,10 @@ export default function Map() {
           .addTo(mapRef.current)
         
         markersRef.current.set(stop.id_loca, marker)
+        
+        // Add to stops data and update routes
+        stopsDataRef.current.push({ id: stop.id_loca, coords })
+        updateStopRoutes()
       } catch {}
     }
     
@@ -98,6 +103,80 @@ export default function Map() {
       try {
         const { stopId } = ev.detail
         const marker = markersRef.current.get(stopId)
+        if (marker) {
+          marker.remove()
+          markersRef.current.delete(stopId)
+        }
+        
+        // Remove from stops data and update routes
+        stopsDataRef.current = stopsDataRef.current.filter(s => s.id !== stopId)
+        updateStopRoutes()
+      } catch {}
+    }
+    
+    function onDestinationsUpdated(ev: any) {
+      try {
+        const { stops } = ev.detail
+        if (!stops || !Array.isArray(stops)) return
+        
+        // Update stops data with new order
+        stopsDataRef.current = stops
+          .filter((s: any) => s.coordinates)
+          .map((s: any) => ({
+            id: s.id_loca,
+            coords: [s.coordinates.lng, s.coordinates.lat] as [number, number]
+          }))
+        
+        updateStopRoutes()
+      } catch {}
+    }
+    
+    function updateStopRoutes() {
+      const map = mapRef.current
+      if (!map) return
+      
+      // Remove existing route layer and source
+      try { if (map.getLayer('stops-route')) map.removeLayer('stops-route') } catch {}
+      try { if (map.getSource('stops-route')) map.removeSource('stops-route') } catch {}
+      
+      // Need at least 2 stops to draw a route
+      if (stopsDataRef.current.length < 2) return
+      
+      const coordinates = stopsDataRef.current.map(s => s.coords)
+      
+      const geojson = {
+        type: 'Feature',
+        geometry: { 
+          type: 'LineString', 
+          coordinates 
+        },
+        properties: {}
+      }
+      
+      try {
+        map.addSource('stops-route', { 
+          type: 'geojson', 
+          data: geojson 
+        })
+        map.addLayer({
+          id: 'stops-route',
+          type: 'line',
+          source: 'stops-route',
+          layout: { 
+            'line-join': 'round', 
+            'line-cap': 'round' 
+          },
+          paint: { 
+            'line-color': '#3b82f6',
+            'line-width': 3,
+            'line-opacity': 0.7,
+            'line-dasharray': [2, 2]  // Dashed line to distinguish from manual routes
+          }
+        })
+      } catch (e) {
+        console.error('Failed to add stops route:', e)
+      }
+    }
         if (marker) {
           marker.remove()
           markersRef.current.delete(stopId)
@@ -116,6 +195,7 @@ export default function Map() {
     window.addEventListener('route-set-point', onRouteSetPoint as any)
     window.addEventListener('destination-added', onDestinationAdded as any)
     window.addEventListener('destination-removed', onDestinationRemoved as any)
+    window.addEventListener('destinations-updated', onDestinationsUpdated as any)
     window.addEventListener('map-focus', onMapFocus as any)
     
     return () => {
@@ -124,9 +204,11 @@ export default function Map() {
       // Clean up all markers
       markersRef.current.forEach(marker => marker?.remove?.())
       markersRef.current.clear()
+      stopsDataRef.current = []
       window.removeEventListener('route-set-point', onRouteSetPoint as any)
       window.removeEventListener('destination-added', onDestinationAdded as any)
       window.removeEventListener('destination-removed', onDestinationRemoved as any)
+      window.removeEventListener('destinations-updated', onDestinationsUpdated as any)
       window.removeEventListener('map-focus', onMapFocus as any)
     }
   }, [])

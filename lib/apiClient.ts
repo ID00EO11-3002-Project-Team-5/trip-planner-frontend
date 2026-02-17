@@ -292,6 +292,95 @@ export const stopsApi = {
   },
 };
 
+// ==================== LODGING API ====================
+
+export interface Lodging {
+  id_lodg: string;
+  id_itit: string;
+  name_lodg: string;
+  address_lodg?: string | null;
+  checkin_lodg?: string | null;
+  checkout_lodg?: string | null;
+  confirmation_lodg?: string | null;
+  link_lodg?: string | null;
+  createdat_lodg?: string;
+}
+
+export const lodgingApi = {
+  getByItinerary: async (itineraryId: string): Promise<Lodging[]> => {
+    return apiCall(`/lodging/itinerary/${itineraryId}`);
+  },
+
+  getById: async (id: string): Promise<Lodging> => {
+    return apiCall(`/lodging/${id}`);
+  },
+
+  create: async (lodging: Omit<Lodging, 'id_lodg' | 'createdat_lodg'>): Promise<Lodging> => {
+    return apiCall('/lodging', {
+      method: 'POST',
+      body: lodging,
+    });
+  },
+
+  update: async (id: string, lodging: Partial<Omit<Lodging, 'id_lodg' | 'createdat_lodg'>>): Promise<Lodging> => {
+    return apiCall(`/lodging/${id}`, {
+      method: 'PATCH',
+      body: lodging,
+    });
+  },
+
+  delete: async (id: string): Promise<void> => {
+    return apiCall(`/lodging/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ==================== TRANSPORT API ====================
+
+export interface Transport {
+  id_tran: string;
+  id_itit: string;
+  type_tran: string;
+  provider_tran?: string | null;
+  deploc_tran?: string | null;
+  arrloc_tran?: string | null;
+  deptime_tran?: string | null;
+  arrtime_tran?: string | null;
+  link_tran?: string | null;
+  createdat_tran?: string;
+}
+
+export const transportApi = {
+  getByItinerary: async (itineraryId: string): Promise<Transport[]> => {
+    return apiCall(`/transport/itinerary/${itineraryId}`);
+  },
+
+  getById: async (id: string): Promise<Transport> => {
+    return apiCall(`/transport/${id}`);
+  },
+
+  create: async (transport: Omit<Transport, 'id_tran' | 'createdat_tran'>): Promise<Transport> => {
+    return apiCall('/transport', {
+      method: 'POST',
+      body: transport,
+    });
+  },
+
+  update: async (id: string, transport: Partial<Omit<Transport, 'id_tran' | 'createdat_tran'>>): Promise<Transport> => {
+    return apiCall(`/transport/${id}`, {
+      method: 'PATCH',
+      body: transport,
+    });
+  },
+
+  delete: async (id: string): Promise<void> => {
+    return apiCall(`/transport/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 // ==================== HEALTH CHECK ====================
 
 export const healthApi = {
@@ -308,6 +397,8 @@ export const apiClient = {
   settlements: settlementsApi,
   itinerary: itineraryApi,
   stops: stopsApi,
+  lodging: lodgingApi,
+  transport: transportApi,
   health: healthApi,
 };
 

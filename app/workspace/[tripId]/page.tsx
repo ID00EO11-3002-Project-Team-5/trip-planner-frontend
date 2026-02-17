@@ -62,6 +62,41 @@ export default function WorkspacePage() {
         <div className="glass-card p-3 sm:p-4 md:p-6">
           <ItineraryBuilder tripId={tripId} />
         </div>
+
+        {/* Quick Access Links */}
+        <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
+          <button
+            onClick={() => router.push(`/workspace/${tripId}/lodging`)}
+            className="glass-card p-4 sm:p-6 hover:shadow-xl transition-all group text-left"
+          >
+            <div className="flex items-center gap-4">
+              <div className="text-4xl group-hover:scale-110 transition-transform">🏨</div>
+              <div>
+                <h3 className="font-semibold text-lg mb-1">Accommodations</h3>
+                <p className="text-sm text-slate-500">Manage hotels, Airbnb, and lodging</p>
+              </div>
+              <div className="ml-auto text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200">
+                →
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => router.push(`/workspace/${tripId}/transport`)}
+            className="glass-card p-4 sm:p-6 hover:shadow-xl transition-all group text-left"
+          >
+            <div className="flex items-center gap-4">
+              <div className="text-4xl group-hover:scale-110 transition-transform">🚗</div>
+              <div>
+                <h3 className="font-semibold text-lg mb-1">Transportation</h3>
+                <p className="text-sm text-slate-500">Flights, trains, buses, and more</p>
+              </div>
+              <div className="ml-auto text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200">
+                →
+              </div>
+            </div>
+          </button>
+        </div>
         
         {/* Map and Destination Stops */}
         <div className="grid gap-4 sm:gap-6 md:grid-cols-3">

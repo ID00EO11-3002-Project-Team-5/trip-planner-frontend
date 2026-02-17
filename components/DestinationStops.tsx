@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { apiClient, type DestinationStop } from '@/lib/apiClient';
 
 interface DestinationStopsProps {
@@ -23,23 +23,30 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
   const [showSearch, setShowSearch] = useState(false);
   const [draggedId, setDraggedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (tripId) {
-      loadStops();
-    }
-  }, [tripId]);
-
-  async function loadStops() {
+  const loadStops = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiClient.stops.getByTrip(tripId);
       setStops(data);
+      
+      // Dispatch event to update map routes
+      try {
+        window.dispatchEvent(new CustomEvent('destinations-updated', { 
+          detail: { stops: data } 
+        }));
+      } catch {}
     } catch (error) {
       console.error('Failed to load destination stops:', error);
     } finally {
       setLoading(false);
     }
-  }
+  }, [tripId]);
+
+  useEffect(() => {
+    if (tripId) {
+      loadStops();
+    }
+  }, [tripId, loadStops]);
 
   // Mapbox location search
   async function searchLocations(query: string) {
@@ -97,6 +104,14 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
           }));
         } catch {}
       }
+      
+      // Update the full stops list for route drawing
+      const updatedStops = [...stops, newStop];
+      try {
+        window.dispatchEvent(new CustomEvent('destinations-updated', { 
+          detail: { stops: updatedStops } 
+        }));
+      } catch {}
     } catch (error) {
       console.error('Failed to create destination stop:', error);
     }
@@ -158,6 +173,13 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
 
     setStops(newStops);
     setDraggedId(null);
+
+    // Dispatch event to update map routes with new order
+    try {
+      window.dispatchEvent(new CustomEvent('destinations-updated', { 
+        detail: { stops: newStops } 
+      }));
+    } catch {}
 
     // Save to backend
     try {
