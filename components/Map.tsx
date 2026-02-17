@@ -50,7 +50,7 @@ export default function Map() {
           setDestination([e.lngLat.lng, e.lngLat.lat])
         } else {
           new mapboxgl.Marker().setLngLat(e.lngLat).addTo(map)
-          try { channel?.send({ type: 'broadcast', event: 'marker-added', payload: e.lngLat }) } catch {}
+          try { channel?.send({ type: 'broadcast', event: 'marker-added', payload: e.lngLat }) } catch (_) {}
         }
       })
 
@@ -62,7 +62,7 @@ export default function Map() {
             try {
               const mapboxgl2 = mapboxgl
               new mapboxgl2.Marker().setLngLat(payload.payload).addTo(map)
-            } catch {}
+            } catch (_) {}
           })
           .subscribe()
       }
@@ -77,7 +77,7 @@ export default function Map() {
         if (!detail || !detail.coords) return
         if (detail.type === 'origin') setOrigin(detail.coords)
         else if (detail.type === 'destination') setDestination(detail.coords)
-      } catch {}
+      } catch (_) {}
     }
     
     async function onDestinationAdded(ev: any) {
@@ -96,7 +96,7 @@ export default function Map() {
         // Add to stops data and update routes
         stopsDataRef.current.push({ id: stop.id_loca, coords })
         updateStopRoutes()
-      } catch {}
+      } catch (_) {}
     }
     
     function onDestinationRemoved(ev: any) {
@@ -111,7 +111,7 @@ export default function Map() {
         // Remove from stops data and update routes
         stopsDataRef.current = stopsDataRef.current.filter(s => s.id !== stopId)
         updateStopRoutes()
-      } catch {}
+      } catch (_) {}
     }
     
     function onDestinationsUpdated(ev: any) {
@@ -128,7 +128,7 @@ export default function Map() {
           }))
         
         updateStopRoutes()
-      } catch {}
+      } catch (_) {}
     }
     
     function updateStopRoutes() {
@@ -136,8 +136,8 @@ export default function Map() {
       if (!map) return
       
       // Remove existing route layer and source
-      try { if (map.getLayer('stops-route')) map.removeLayer('stops-route') } catch {}
-      try { if (map.getSource('stops-route')) map.removeSource('stops-route') } catch {}
+      try { if (map.getLayer('stops-route')) map.removeLayer('stops-route') } catch (_) {}
+      try { if (map.getSource('stops-route')) map.removeSource('stops-route') } catch (_) {}
       
       // Need at least 2 stops to draw a route
       if (stopsDataRef.current.length < 2) return
@@ -177,19 +177,13 @@ export default function Map() {
         console.error('Failed to add stops route:', e)
       }
     }
-        if (marker) {
-          marker.remove()
-          markersRef.current.delete(stopId)
-        }
-      } catch {}
-    }
     
     function onMapFocus(ev: any) {
       try {
         const { coords, zoom } = ev.detail
         if (!coords || !mapRef.current) return
         mapRef.current.flyTo({ center: coords, zoom: zoom || 12 })
-      } catch {}
+      } catch (_) {}
     }
     
     window.addEventListener('route-set-point', onRouteSetPoint as any)
@@ -199,8 +193,8 @@ export default function Map() {
     window.addEventListener('map-focus', onMapFocus as any)
     
     return () => {
-      try { map?.remove?.() } catch {}
-      try { channel?.unsubscribe?.() } catch {}
+      try { map?.remove?.() } catch (_) {}
+      try { channel?.unsubscribe?.() } catch (_) {}
       // Clean up all markers
       markersRef.current.forEach(marker => marker?.remove?.())
       markersRef.current.clear()
@@ -216,8 +210,8 @@ export default function Map() {
   useEffect(() => {
     const map = mapRef.current
     if (!map || !origin || !destination) return
-    try { if (map.getLayer('route')) map.removeLayer('route') } catch {}
-    try { if (map.getSource('route')) map.removeSource('route') } catch {}
+    try { if (map.getLayer('route')) map.removeLayer('route') } catch (_) {}
+    try { if (map.getSource('route')) map.removeSource('route') } catch (_) {}
     const geojson = {
       type: 'Feature',
       geometry: { type: 'LineString', coordinates: [origin, destination] },
@@ -232,15 +226,15 @@ export default function Map() {
         layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: { 'line-color': '#0f172a', 'line-width': 4 }
       })
-    } catch {}
+    } catch (_) {}
   }, [origin, destination])
 
   function clearRoute() {
     setOrigin(null)
     setDestination(null)
     const map = mapRef.current
-    try { if (map.getLayer('route')) map.removeLayer('route') } catch {}
-    try { if (map.getSource('route')) map.removeSource('route') } catch {}
+    try { if (map.getLayer('route')) map.removeLayer('route') } catch (_) {}
+    try { if (map.getSource('route')) map.removeSource('route') } catch (_) {}
   }
 
   function distKm(a: [number, number], b: [number, number]) {

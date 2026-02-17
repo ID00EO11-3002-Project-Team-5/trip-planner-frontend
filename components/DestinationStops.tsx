@@ -72,7 +72,7 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
         window.dispatchEvent(new CustomEvent('destinations-updated', { 
           detail: { stops: stopsForMap } 
         }));
-      } catch {}
+      } catch (_) {}
     } catch (error) {
       console.error('Failed to load destination stops:', error);
     } finally {
@@ -156,7 +156,7 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
             coords: [coordinates.lng, coordinates.lat] 
           } 
         }));
-      } catch {}
+      } catch (_) {}
       
       // Update the full stops list for route drawing (convert to old format)
       const updatedStops = [...stops, newStop].map(s => ({
@@ -167,7 +167,7 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
         window.dispatchEvent(new CustomEvent('destinations-updated', { 
           detail: { stops: updatedStops } 
         }));
-      } catch {}
+      } catch (_) {}
     } catch (error) {
       console.error('Failed to create destination stop:', error);
     }
@@ -184,7 +184,7 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
         window.dispatchEvent(new CustomEvent('destination-removed', { 
           detail: { stopId } 
         }));
-      } catch {}
+      } catch (_) {}
     } catch (error) {
       console.error('Failed to delete stop:', error);
     }
@@ -240,7 +240,7 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
       window.dispatchEvent(new CustomEvent('destinations-updated', { 
         detail: { stops: stopsForMap } 
       }));
-    } catch {}
+    } catch (_) {}
 
     // Save to backend using itinerary reorder
     try {
@@ -263,7 +263,7 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
             zoom: 14 
           } 
         }));
-      } catch {}
+      } catch (_) {}
     }
     onStopSelected?.(stop);
   }
