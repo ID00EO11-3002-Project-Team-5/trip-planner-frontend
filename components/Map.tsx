@@ -8,6 +8,7 @@ export default function Map() {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
   const modeRef = useRef<'none' | 'origin' | 'destination'>('none')
+  const markersRef = useRef<Map<string, any>>(new Map())  // Track destination stop markers
   const [ready, setReady] = useState(false)
   const [mode, setMode] = useState<'none' | 'origin' | 'destination'>('none')
   const [origin, setOrigin] = useState<[number, number] | null>(null)
@@ -65,7 +66,8 @@ export default function Map() {
       setReady(true)
     }
     init()
-    function onRouteSetPoint(ev: any) {
+    
+    async function onRouteSetPoint(ev: any) {
       try {
         const detail = ev.detail as { type: 'origin'|'destination', coords: [number, number] }
         if (!detail || !detail.coords) return
@@ -73,11 +75,56 @@ export default function Map() {
         else if (detail.type === 'destination') setDestination(detail.coords)
       } catch {}
     }
+    
+    async function onDestinationAdded(ev: any) {
+      try {
+        const { stop, coords } = ev.detail
+        if (!stop || !coords || !mapRef.current) return
+        
+        const mapboxgl = (await import('mapbox-gl')).default
+        const marker = new mapboxgl.Marker({ color: '#3b82f6' })
+          .setLngLat(coords)
+          .setPopup(new mapboxgl.Popup().setHTML(`<strong>${stop.name_loca}</strong>`))
+          .addTo(mapRef.current)
+        
+        markersRef.current.set(stop.id_loca, marker)
+      } catch {}
+    }
+    
+    function onDestinationRemoved(ev: any) {
+      try {
+        const { stopId } = ev.detail
+        const marker = markersRef.current.get(stopId)
+        if (marker) {
+          marker.remove()
+          markersRef.current.delete(stopId)
+        }
+      } catch {}
+    }
+    
+    function onMapFocus(ev: any) {
+      try {
+        const { coords, zoom } = ev.detail
+        if (!coords || !mapRef.current) return
+        mapRef.current.flyTo({ center: coords, zoom: zoom || 12 })
+      } catch {}
+    }
+    
     window.addEventListener('route-set-point', onRouteSetPoint as any)
+    window.addEventListener('destination-added', onDestinationAdded as any)
+    window.addEventListener('destination-removed', onDestinationRemoved as any)
+    window.addEventListener('map-focus', onMapFocus as any)
+    
     return () => {
       try { map?.remove?.() } catch {}
       try { channel?.unsubscribe?.() } catch {}
+      // Clean up all markers
+      markersRef.current.forEach(marker => marker?.remove?.())
+      markersRef.current.clear()
       window.removeEventListener('route-set-point', onRouteSetPoint as any)
+      window.removeEventListener('destination-added', onDestinationAdded as any)
+      window.removeEventListener('destination-removed', onDestinationRemoved as any)
+      window.removeEventListener('map-focus', onMapFocus as any)
     }
   }, [])
 
