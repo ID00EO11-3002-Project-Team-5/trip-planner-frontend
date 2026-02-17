@@ -8,7 +8,7 @@ export default function Map() {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
   const modeRef = useRef<'none' | 'origin' | 'destination'>('none')
-  const markersRef = useRef<Map<string, any>>(new Map())  // Track destination stop markers
+  const markersRef = useRef<Map<string, any>>(new Map<string, any>())  // Track destination stop markers
   const [ready, setReady] = useState(false)
   const [mode, setMode] = useState<'none' | 'origin' | 'destination'>('none')
   const [origin, setOrigin] = useState<[number, number] | null>(null)
