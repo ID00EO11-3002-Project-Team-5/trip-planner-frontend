@@ -273,7 +273,7 @@ export const stopsApi = {
 
     if (error) throw new Error(error.message);
     
-    return (data || []).map(stop => ({
+    return (data || []).map((stop: any) => ({
       id_loca: stop.id_loca,
       name_loca: stop.name_loca || '',
       coordinates: stop.coordinates ? {
