@@ -287,8 +287,8 @@ export const healthApi = {
   },
 };
 
-// Export the API client as default
-const apiClient = {
+// Export the API client as both named and default
+export const apiClient = {
   auth: authApi,
   trips: tripsApi,
   expenses: expensesApi,
