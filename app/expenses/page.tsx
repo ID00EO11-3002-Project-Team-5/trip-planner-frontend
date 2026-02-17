@@ -2,16 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/authContext";
-import { useRouter } from "next/navigation";
 import apiClient, { Expense, Trip, CreateExpensePayload } from "@/lib/apiClient";
 import { ExpenseList } from "@/components/ExpenseList";
 import { ExpenseForm } from "@/components/ExpenseForm";
 import { ExpenseSummary } from "@/components/ExpenseSummary";
 import { useToast } from "@/components/ToastProvider";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
-export default function ExpensesPage() {
-  const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+function ExpensesContent() {
+  const { user } = useAuth();
   const { show } = useToast();
 
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -21,13 +20,6 @@ export default function ExpensesPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [tripMembers, setTripMembers] = useState<Array<{ id: string; name?: string; email?: string }>>([]);
-
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, authLoading, router]);
 
   // Load trips
   useEffect(() => {
@@ -214,12 +206,9 @@ export default function ExpensesPage() {
           <p className="text-slate-600 dark:text-slate-400 mb-3">
             You don&apos;t have any trips yet
           </p>
-          <button
-            onClick={() => router.push('/planner')}
-            className="btn-primary"
-          >
+          <a href="/planner" className="btn-primary inline-block">
             Create Your First Trip
-          </button>
+          </a>
         </div>
       )}
 
@@ -257,5 +246,13 @@ export default function ExpensesPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function ExpensesPage() {
+  return (
+    <ProtectedRoute>
+      <ExpensesContent />
+    </ProtectedRoute>
   );
 }

@@ -15,10 +15,6 @@ export default function TripsPage() {
   const router = useRouter();
   const { show } = useToast();
 
-  useEffect(() => {
-    loadTrips();
-  }, []);
-
   const loadTrips = async () => {
     try {
       setLoading(true);
@@ -30,6 +26,11 @@ export default function TripsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadTrips();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDelete = async (tripId: string) => {
     if (!confirm("Are you sure you want to delete this trip?")) return;

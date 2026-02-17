@@ -33,15 +33,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    // Listen for auth changes
+    // Listen for auth changes including token expiration
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
-      setUser(session?.user ?? null);
+    } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
+      if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+        setUser(session?.user ?? null);
+      } else if (event === 'SIGNED_IN') {
+        setUser(session?.user ?? null);
+        // Update token in localStorage
+        if (session?.access_token) {
+          localStorage.setItem('authToken', session.access_token);
+        }
+      } else {
+        setUser(session?.user ?? null);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Monitor session expiration and auto-logout
+  useEffect(() => {
+    if (!supabase || !user) return;
+
+    const checkSessionExpiration = async () => {
+      const { data } = await supabase.auth.getSession();
+      
+      if (data.session?.expires_at) {
+        const expiresAt = data.session.expires_at * 1000; // Convert to milliseconds
+        const now = Date.now();
+        
+        // If session has expired, sign out
+        if (now >= expiresAt) {
+          console.log('Session expired, logging out...');
+          await supabase.auth.signOut();
+          localStorage.removeItem('authToken');
+          setUser(null);
+          window.location.href = '/login?expired=true';
+        }
+      }
+    };
+
+    // Check expiration every 30 seconds
+    const interval = setInterval(checkSessionExpiration, 30000);
+    
+    // Check immediately on mount
+    checkSessionExpiration();
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   const signUp = async (email: string, password: string, name?: string) => {
     if (!supabase) {

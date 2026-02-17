@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/authContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -9,12 +9,23 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [expiredMessage, setExpiredMessage] = useState<string | null>(null);
   const { signIn } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    // Check if user was redirected due to session expiration
+    const expired = searchParams.get('expired');
+    if (expired === 'true') {
+      setExpiredMessage('Your session has expired. Please log in again.');
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setExpiredMessage(null);
     setLoading(true);
 
     try {
@@ -41,6 +52,12 @@ export default function LoginPage() {
       </div>
       
       <form onSubmit={handleSubmit} className="glass-card p-6 space-y-4">
+        {expiredMessage && (
+          <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <p className="text-sm text-amber-700 dark:text-amber-400">{expiredMessage}</p>
+          </div>
+        )}
+
         {error && (
           <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
             <p className="text-sm text-red-700 dark:text-red-400">{error}</p>

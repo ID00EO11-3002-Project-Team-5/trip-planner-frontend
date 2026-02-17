@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { ProtectedRoute } from "../../components/ProtectedRoute";
 
-export default function VaultPage() {
+function VaultContent() {
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<string>("");
 
@@ -50,5 +51,13 @@ export default function VaultPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function VaultPage() {
+  return (
+    <ProtectedRoute>
+      <VaultContent />
+    </ProtectedRoute>
   );
 }
