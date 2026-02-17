@@ -4,11 +4,14 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { supabase } from '../lib/supabaseClient'
 import { Skeleton } from './Skeleton'
 
+// Alias to avoid conflict with component name
+type MarkerMap = Map<string, any>;
+
 export default function Map() {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
   const modeRef = useRef<'none' | 'origin' | 'destination'>('none')
-  const markersRef = useRef<Map<string, any>>(new Map<string, any>())  // Track destination stop markers
+  const markersRef = useRef<MarkerMap>(new globalThis.Map())  // Track destination stop markers
   const [ready, setReady] = useState(false)
   const [mode, setMode] = useState<'none' | 'origin' | 'destination'>('none')
   const [origin, setOrigin] = useState<[number, number] | null>(null)
