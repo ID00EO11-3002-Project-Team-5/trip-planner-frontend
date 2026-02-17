@@ -268,8 +268,7 @@ export const stopsApi = {
     const { data, error } = await supabase
       .from('t_location_loca')
       .select('*')
-      .eq('id_trip', tripId)
-      .order('position_loca', { ascending: true, nullsFirst: false });
+      .eq('id_trip', tripId);
 
     if (error) throw new Error(error.message);
     
@@ -280,7 +279,6 @@ export const stopsApi = {
         lat: stop.coordinates.lat,
         lng: stop.coordinates.lng,
       } : { lat: 0, lng: 0 },
-      position_loca: stop.position_loca,
     }));
   },
 
