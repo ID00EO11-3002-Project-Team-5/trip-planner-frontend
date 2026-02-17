@@ -5,6 +5,8 @@
  * Automatically switches between local development and production
  */
 
+import { supabase } from './supabaseClient';
+
 // Automatically detect environment
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -250,16 +252,38 @@ export const itineraryApi = {
 
 export interface DestinationStop {
   id_loca: string;
-  id_trip: string;
+  id_trip?: string;
   name_loca: string;
   coordinates: {
     lat: number;
     lng: number;
   } | null;
   createdat_loca?: string;
+  position_loca?: number;
 }
 
 export const stopsApi = {
+  // Get all stops for a trip (using Supabase directly since backend endpoint doesn't exist)
+  getByTrip: async (tripId: string): Promise<DestinationStop[]> => {
+    const { data, error } = await supabase
+      .from('t_location_loca')
+      .select('*')
+      .eq('id_trip', tripId)
+      .order('position_loca', { ascending: true, nullsFirst: false });
+
+    if (error) throw new Error(error.message);
+    
+    return (data || []).map(stop => ({
+      id_loca: stop.id_loca,
+      name_loca: stop.name_loca || '',
+      coordinates: stop.coordinates ? {
+        lat: stop.coordinates.lat,
+        lng: stop.coordinates.lng,
+      } : { lat: 0, lng: 0 },
+      position_loca: stop.position_loca,
+    }));
+  },
+
   create: async (stop: {
     id_trip: string;
     name_loca: string;
@@ -276,6 +300,16 @@ export const stopsApi = {
       method: 'PATCH',
       body: { updates },
     });
+  },
+
+  // Delete a stop (using Supabase directly since backend endpoint doesn't exist)
+  delete: async (stopId: string): Promise<void> => {
+    const { error } = await supabase
+      .from('t_location_loca')
+      .delete()
+      .eq('id_loca', stopId);
+
+    if (error) throw new Error(error.message);
   },
 };
 

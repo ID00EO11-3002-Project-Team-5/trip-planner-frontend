@@ -165,8 +165,8 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
         date: '',
         time: '',
         location: stop.name_loca,
-        lng: stop.coordinates.lng,
-        lat: stop.coordinates.lat,
+        lng: stop.coordinates?.lng,
+        lat: stop.coordinates?.lat,
         stopId: stop.id_loca,
         isNew: true,
       };
@@ -177,11 +177,13 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
       setShowLocationSearch(false);
 
       // Dispatch to map
-      try {
-        window.dispatchEvent(new CustomEvent('route-set-point', { 
-          detail: { type: 'destination', coords: [stop.coordinates.lng, stop.coordinates.lat] } 
-        }));
-      } catch {}
+      if (stop.coordinates) {
+        try {
+          window.dispatchEvent(new CustomEvent('route-set-point', { 
+            detail: { type: 'destination', coords: [stop.coordinates.lng, stop.coordinates.lat] } 
+          }));
+        } catch {}
+      }
     } catch (error) {
       console.error('Failed to create destination stop:', error);
     }
