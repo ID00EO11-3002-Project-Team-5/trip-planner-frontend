@@ -1,222 +1,548 @@
 "use client";
 import { useEffect, useMemo, useState, useRef } from 'react'
+import { apiClient, type ItineraryItem, type DestinationStop } from '@/lib/apiClient'
 
-type Activity = { id: string; title: string; date: string; time: string; location: string; costTag?: string; cost?: string; lng?: number; lat?: number }
+type Activity = { 
+  id: string; 
+  title: string; 
+  date: string; 
+  time: string; 
+  location: string; 
+  cost?: number;
+  lng?: number; 
+  lat?: number;
+  stopId?: string;
+  isNew?: boolean;
+}
 
-const defaultItems: Activity[] = [
-  { id: 'a1', title: 'Brunch', date: 'Jun 7', time: '10:00', location: 'Lisboa', costTag: 'Food', cost: '25.00' },
-  { id: 'a2', title: 'Castle Tour', date: 'Jun 7', time: '14:00', location: 'Sintra', costTag: 'Attraction', cost: '18.00' },
-];
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
-export function ItineraryBuilder({ onChange }: { onChange?: (items: Activity[]) => void }) {
-  const [items, setItems] = useState<Activity[]>(defaultItems);
+type MapboxFeature = {
+  place_name: string;
+  center: [number, number];
+  text: string;
+}
+
+export function ItineraryBuilder({ tripId }: { tripId: string }) {
+  const [items, setItems] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [tagFilter, setTagFilter] = useState<string>('');
+  const [locationSearch, setLocationSearch] = useState('');
+  const [locationResults, setLocationResults] = useState<MapboxFeature[]>([]);
+  const [showLocationSearch, setShowLocationSearch] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [savingItems, setSavingItems] = useState<Set<string>>(new Set());
+  const saveTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const isInitialized = useRef(false);
 
-  // Load from localStorage after mount to avoid hydration mismatch
+  // Load items from backend
   useEffect(() => {
-    if (isInitialized.current) return;
+    if (!tripId || isInitialized.current) return;
     isInitialized.current = true;
-    
+    loadItems();
+  }, [tripId]);
+
+  async function loadItems() {
     try {
-      const storedItems = localStorage.getItem('itinerary_items');
-      const storedSearch = localStorage.getItem('itinerary_search');
-      const storedTag = localStorage.getItem('itinerary_tag');
+      setLoading(true);
+      const itineraryItems = await apiClient.itinerary.getByTrip(tripId);
       
-      // Use requestAnimationFrame to defer state updates
-      requestAnimationFrame(() => {
-        if (storedItems) setItems(JSON.parse(storedItems));
-        if (storedSearch) setSearch(storedSearch);
-        if (storedTag) setTagFilter(storedTag);
+      const activities: Activity[] = itineraryItems.map((item) => ({
+        id: item.id_itit,
+        title: item.title_itit || '',
+        date: item.date_itit || '',
+        time: item.time_itit || '',
+        location: item.location_itit || item.formal_location?.name_loca || '',
+        cost: item.cost_itit || undefined,
+        lng: item.formal_location?.coordinates?.lng,
+        lat: item.formal_location?.coordinates?.lat,
+        stopId: item.id_loca || undefined,
+      }));
+
+      setItems(activities);
+    } catch (error) {
+      console.error('Failed to load itinerary:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Debounced save for edited items
+  async function saveItem(item: Activity) {
+    if (!item.title || !item.date) return; // Skip saving incomplete items
+
+    try {
+      setSavingItems(prev => new Set(prev).add(item.id));
+      
+      // Delete old item and create new one (since there's no PATCH endpoint)
+      if (!item.isNew) {
+        await apiClient.itinerary.delete(item.id);
+      }
+
+      // Calculate position based on current order
+      const position = items.findIndex(i => i.id === item.id);
+      
+      await apiClient.itinerary.create({
+        id_trip: tripId,
+        title_itit: item.title,
+        date_itit: item.date,
+        time_itit: item.time || undefined,
+        location_itit: item.location || undefined,
+        cost_itit: item.cost,
+        position_itit: position,
+        id_loca: item.stopId,
       });
-    } catch {}
-  }, []);
 
-  useEffect(() => {
-    try { localStorage.setItem('itinerary_items', JSON.stringify(items)) } catch {}
-  }, [items])
-  useEffect(() => {
-    try { localStorage.setItem('itinerary_search', search) } catch {}
-  }, [search])
-  useEffect(() => {
-    try { localStorage.setItem('itinerary_tag', tagFilter) } catch {}
-  }, [tagFilter])
+      // Reload to get updated data with proper IDs
+      await loadItems();
 
-  function update(i: number, field: keyof Activity, value: string) {
-    const copy = [...items]
-    ;(copy[i] as any)[field] = value
-    setItems(copy)
-    onChange?.(copy)
+    } catch (error) {
+      console.error('Failed to save item:', error);
+    } finally {
+      setSavingItems(prev => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  }
+
+  // Search Mapbox for locations
+  async function searchLocations(query: string) {
+    if (!query.trim() || !MAPBOX_TOKEN) {
+      setLocationResults([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${MAPBOX_TOKEN}&limit=5`
+      );
+      const data = await response.json();
+      setLocationResults(data.features || []);
+    } catch (error) {
+      console.error('Mapbox search failed:', error);
+      setLocationResults([]);
+    }
+  }
+
+  // Debounce location search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (showLocationSearch) {
+        searchLocations(locationSearch);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [locationSearch, showLocationSearch])
+
+  // Debounce location search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (showLocationSearch) {
+        searchLocations(locationSearch);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [locationSearch, showLocationSearch]);
+
+  // Create destination stop from Mapbox result
+  async function selectLocation(feature: MapboxFeature) {
+    try {
+      const stop = await apiClient.stops.create({
+        id_trip: tripId,
+        name_loca: feature.text || feature.place_name,
+        coordinates: {
+          lng: feature.center[0],
+          lat: feature.center[1],
+        },
+      });
+
+      // Add as new activity
+      const newActivity: Activity = {
+        id: `temp-${Date.now()}`,
+        title: stop.name_loca,
+        date: '',
+        time: '',
+        location: stop.name_loca,
+        lng: stop.coordinates.lng,
+        lat: stop.coordinates.lat,
+        stopId: stop.id_loca,
+        isNew: true,
+      };
+
+      setItems(prev => [...prev, newActivity]);
+      setLocationSearch('');
+      setLocationResults([]);
+      setShowLocationSearch(false);
+
+      // Dispatch to map
+      try {
+        window.dispatchEvent(new CustomEvent('route-set-point', { 
+          detail: { type: 'destination', coords: [stop.coordinates.lng, stop.coordinates.lat] } 
+        }));
+      } catch {}
+    } catch (error) {
+      console.error('Failed to create destination stop:', error);
+    }
+  }
+
+  function update(i: number, field: keyof Activity, value: string | number) {
+    const item = items[i];
+    if (!item) return;
+
+    const updated = { ...item, [field]: value };
+    const copy = [...items];
+    copy[i] = updated;
+    setItems(copy);
+
+    // Clear existing timeout
+    const existingTimeout = saveTimeouts.current.get(item.id);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    // Debounce save (2 seconds after last edit)
+    const timeout = setTimeout(() => {
+      saveItem(updated);
+      saveTimeouts.current.delete(item.id);
+    }, 2000);
+
+    saveTimeouts.current.set(item.id, timeout);
   }
 
   function add() {
-    const copy = [...items, { id: `a${Date.now()}`, title: '', date: '', time: '', location: '', costTag: '', cost: '' }]
-    setItems(copy)
-    onChange?.(copy)
+    const newActivity: Activity = {
+      id: `temp-${Date.now()}`,
+      title: '',
+      date: '',
+      time: '',
+      location: '',
+      isNew: true,
+    };
+    setItems(prev => [...prev, newActivity]);
   }
 
-  function reorderById(fromId: string, toId: string) {
-    if (fromId === toId) return
-    const fromIndex = items.findIndex(i => i.id === fromId)
-    const toIndex = items.findIndex(i => i.id === toId)
-    if (fromIndex < 0 || toIndex < 0) return
-    const copy = [...items]
-    const [moved] = copy.splice(fromIndex, 1)
-    copy.splice(toIndex, 0, moved)
-    setItems(copy)
-    onChange?.(copy)
+  async function removeItem(item: Activity) {
+    try {
+      // Cancel any pending save
+      const timeout = saveTimeouts.current.get(item.id);
+      if (timeout) {
+        clearTimeout(timeout);
+        saveTimeouts.current.delete(item.id);
+      }
+
+      // Delete from backend if it exists
+      if (!item.isNew) {
+        await apiClient.itinerary.delete(item.id);
+      }
+
+      // Remove from local state
+      setItems(prev => prev.filter(i => i.id !== item.id));
+    } catch (error) {
+      console.error('Failed to delete item:', error);
+    }
+  }
+
+  async function reorderById(fromId: string, toId: string) {
+    if (fromId === toId) return;
+    const fromIndex = items.findIndex(i => i.id === fromId);
+    const toIndex = items.findIndex(i => i.id === toId);
+    if (fromIndex < 0 || toIndex < 0) return;
+
+    const copy = [...items];
+    const [moved] = copy.splice(fromIndex, 1);
+    copy.splice(toIndex, 0, moved);
+    setItems(copy);
+
+    // Build updates array with new positions
+    const updates = copy
+      .filter(item => !item.isNew) // Only reorder saved items
+      .map((item, index) => ({
+        id_itit: item.id,
+        position_itit: index,
+      }));
+
+    try {
+      if (updates.length > 0) {
+        await apiClient.itinerary.reorder(tripId, updates);
+      }
+    } catch (error) {
+      console.error('Failed to reorder items:', error);
+      // Revert on error
+      await loadItems();
+    }
   }
 
   const filtered = useMemo(() => {
-    const s = search.trim().toLowerCase()
+    const s = search.trim().toLowerCase();
     return items.filter(i => {
-      const matchTag = tagFilter ? (i.costTag || '').toLowerCase() === tagFilter.toLowerCase() : true
       const matchSearch = s ? (
         (i.title || '').toLowerCase().includes(s) ||
         (i.location || '').toLowerCase().includes(s)
-      ) : true
-      return matchTag && matchSearch
-    })
-  }, [items, search, tagFilter])
-
-  const tags = useMemo(() => {
-    const set = new Set<string>()
-    items.forEach(i => { if (i.costTag) set.add(i.costTag) })
-    return Array.from(set)
-  }, [items])
+      ) : true;
+      return matchSearch;
+    });
+  }, [items, search]);
 
   function parseDate(d: string): number {
-    if (!d) return Number.POSITIVE_INFINITY
-    // Try ISO first
+    if (!d) return Number.POSITIVE_INFINITY;
+    // ISO format
     if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
-      const t = Date.parse(d)
-      return isNaN(t) ? Number.POSITIVE_INFINITY : t
+      const t = Date.parse(d);
+      return isNaN(t) ? Number.POSITIVE_INFINITY : t;
     }
-    // Try generic Date parse (supports 'Jun 7', '7 Jun')
-    const t = Date.parse(d)
-    return isNaN(t) ? Number.POSITIVE_INFINITY : t
+    // Generic parse
+    const t = Date.parse(d);
+    return isNaN(t) ? Number.POSITIVE_INFINITY : t;
   }
 
   function parseTime(t: string): number {
-    if (!t) return Number.POSITIVE_INFINITY
-    // Supports HH:MM
-    const m = t.match(/^(\d{1,2}):(\d{2})$/)
-    if (!m) return Number.POSITIVE_INFINITY
-    const h = parseInt(m[1], 10)
-    const min = parseInt(m[2], 10)
-    return h * 60 + min
+    if (!t) return Number.POSITIVE_INFINITY;
+    const m = t.match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) return Number.POSITIVE_INFINITY;
+    const h = parseInt(m[1], 10);
+    const min = parseInt(m[2], 10);
+    return h * 60 + min;
   }
 
   const groups = useMemo(() => {
-    const map: Record<string, Activity[]> = {}
+    const map: Record<string, Activity[]> = {};
     filtered.forEach(i => {
-      const key = i.date || 'No date'
-      map[key] = map[key] || []
-      map[key].push(i)
-    })
-    // sort each group by time, and return sorted entries by date
+      const key = i.date || 'No date';
+      map[key] = map[key] || [];
+      map[key].push(i);
+    });
+    // Sort each group by time, and return sorted entries by date
     const entries = Object.entries(map)
-      .map(([k, arr]) => [k, arr.slice().sort((a,b)=> parseTime(a.time) - parseTime(b.time))] as [string, Activity[]])
-      .sort((a,b)=> parseDate(a[0]) - parseDate(b[0]))
-    // rebuild object preserving order
-    const ordered: Record<string, Activity[]> = {}
-    entries.forEach(([k, arr])=> { ordered[k] = arr })
-    return ordered
-  }, [filtered])
-  function dispatchRoutePoint(a: Activity, type: 'origin' | 'destination') {
-    if (typeof a.lng !== 'number' || typeof a.lat !== 'number') return
-    try {
-      window.dispatchEvent(new CustomEvent('route-set-point', { detail: { type, coords: [a.lng, a.lat] } }))
-    } catch {}
-  }
+      .map(([k, arr]) => [k, arr.slice().sort((a, b) => parseTime(a.time) - parseTime(b.time))] as [string, Activity[]])
+      .sort((a, b) => parseDate(a[0]) - parseDate(b[0]));
+    // Rebuild object preserving order
+    const ordered: Record<string, Activity[]> = {};
+    entries.forEach(([k, arr]) => { ordered[k] = arr; });
+    return ordered;
+  }, [filtered]);
 
   function onDragStart(id: string) {
-    setActiveId(id)
+    setActiveId(id);
   }
 
   function onDropOn(targetId: string) {
-    if (activeId) reorderById(activeId, targetId)
-    setActiveId(null)
+    if (activeId) reorderById(activeId, targetId);
+    setActiveId(null);
   }
 
   function onKeyReorder(id: string, dir: 'up' | 'down') {
-    const index = items.findIndex(i => i.id === id)
-    if (index < 0) return
-    const neighbor = dir === 'up' ? items[index - 1] : items[index + 1]
-    if (!neighbor) return
-    reorderById(id, neighbor.id)
+    const index = items.findIndex(i => i.id === id);
+    if (index < 0) return;
+    const neighbor = dir === 'up' ? items[index - 1] : items[index + 1];
+    if (!neighbor) return;
+    reorderById(id, neighbor.id);
+  }
+
+  function dispatchRoutePoint(a: Activity, type: 'origin' | 'destination') {
+    if (typeof a.lng !== 'number' || typeof a.lat !== 'number') return;
+    try {
+      window.dispatchEvent(new CustomEvent('route-set-point', { detail: { type, coords: [a.lng, a.lat] } }));
+    } catch {}
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-medium">Itinerary Builder</h3>
+          <div className="text-sm text-slate-500">Loading...</div>
+        </div>
+        <div className="animate-pulse space-y-2">
+          <div className="h-20 bg-slate-200 dark:bg-slate-700 rounded-xl"></div>
+          <div className="h-20 bg-slate-200 dark:bg-slate-700 rounded-xl"></div>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h3 className="font-medium">The Builder</h3>
+        <h3 className="font-medium">Itinerary Builder</h3>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          <div className="flex gap-2">
-            <input className="input flex-1 sm:w-36 lg:w-48" placeholder="Search" value={search} onChange={e=>setSearch(e.target.value)} />
-            <select className="input flex-1 sm:w-28 lg:w-36" value={tagFilter} onChange={e=>setTagFilter(e.target.value)}>
-              <option value="">All tags</option>
-              {tags.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <button className="btn-secondary text-xs whitespace-nowrap" onClick={add}>Add Activity</button>
+          <input 
+            className="input flex-1 sm:w-48" 
+            placeholder="Search activities" 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+          />
+          <button 
+            className="btn-secondary text-xs whitespace-nowrap" 
+            onClick={() => setShowLocationSearch(!showLocationSearch)}
+          >
+            {showLocationSearch ? 'Close Search' : '📍 Search Places'}
+          </button>
+          <button className="btn-secondary text-xs whitespace-nowrap" onClick={add}>
+            + Add Activity
+          </button>
         </div>
       </div>
 
-      <div className="space-y-4">
-        {Object.entries(groups).map(([date, arr]) => {
-          const total = arr.reduce((sum, a) => sum + (parseFloat(a.cost || '0') || 0), 0)
-          return (
-            <div key={date} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="font-medium">{date}</div>
-                <div className="text-sm text-slate-600 dark:text-slate-300">{arr.length} items • ${total.toFixed(2)}</div>
-              </div>
-              <div className="grid gap-2">
-                {arr.map((a) => {
-                  const i = items.findIndex(it => it.id === a.id)
-                  return (
-                    <div
-                      key={a.id}
-                      className="rounded-xl border border-slate-200/60 bg-white/70 p-3 space-y-2 md:space-y-0 md:grid md:grid-cols-5 md:gap-2 dark:border-slate-700 dark:bg-slate-800/70"
-                      draggable
-                      onDragStart={() => onDragStart(a.id)}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={() => onDropOn(a.id)}
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.altKey && e.key === 'ArrowUp') onKeyReorder(a.id, 'up')
-                        if (e.altKey && e.key === 'ArrowDown') onKeyReorder(a.id, 'down')
-                      }}
-                    >
-                      <input className="input" placeholder="Activity Title" value={a.title} onChange={e=>update(i,'title',e.target.value)} />
-                      <div className="grid grid-cols-2 gap-2 md:contents">
-                        <input className="input" placeholder="Date" value={a.date} onChange={e=>update(i,'date',e.target.value)} />
-                        <input className="input" placeholder="Time" value={a.time} onChange={e=>update(i,'time',e.target.value)} />
-                      </div>
-                      <input className="input" placeholder="Location" value={a.location} onChange={e=>update(i,'location',e.target.value)} />
-                      <div className="grid grid-cols-2 gap-2">
-                        <input className="input" placeholder="Cost Tag" value={a.costTag || ''} onChange={e=>update(i,'costTag',e.target.value)} />
-                        <input className="input" type="number" step="0.01" placeholder="Cost" value={a.cost || ''} onChange={e=>update(i,'cost',e.target.value)} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 md:col-span-5">
-                        <input className="input" type="number" step="0.0001" placeholder="Lng" value={a.lng ?? ''} onChange={e=>update(i,'lng',e.target.value)} />
-                        <input className="input" type="number" step="0.0001" placeholder="Lat" value={a.lat ?? ''} onChange={e=>update(i,'lat',e.target.value)} />
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 md:col-span-5">
-                        <button className="btn-secondary text-xs flex-1 sm:flex-none" onClick={()=>dispatchRoutePoint(a,'origin')}>Use as Origin</button>
-                        <button className="btn-secondary text-xs flex-1 sm:flex-none" onClick={()=>dispatchRoutePoint(a,'destination')}>Use as Destination</button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+      {/* Mapbox Location Search */}
+      {showLocationSearch && (
+        <div className="glass-card p-4 space-y-2">
+          <input
+            className="input w-full"
+            placeholder="Search for a place (e.g., Eiffel Tower, Central Park)"
+            value={locationSearch}
+            onChange={e => setLocationSearch(e.target.value)}
+            autoFocus
+          />
+          {locationResults.length > 0 && (
+            <div className="space-y-1 max-h-60 overflow-y-auto">
+              {locationResults.map((feature, idx) => (
+                <button
+                  key={idx}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-sm"
+                  onClick={() => selectLocation(feature)}
+                >
+                  <div className="font-medium">{feature.text}</div>
+                  <div className="text-xs text-slate-500">{feature.place_name}</div>
+                </button>
+              ))}
             </div>
-          )
-        })}
-      </div>
+          )}
+          {locationSearch && locationResults.length === 0 && (
+            <div className="text-sm text-slate-500 text-center py-2">
+              {MAPBOX_TOKEN ? 'No results found' : 'Mapbox token not configured'}
+            </div>
+          )}
+        </div>
+      )}
+
+      {items.length === 0 ? (
+        <div className="text-center py-8 text-slate-500">
+          <p className="mb-2">No activities yet</p>
+          <p className="text-sm">Add activities manually or search for places to visit</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {Object.entries(groups).map(([date, arr]) => {
+            const total = arr.reduce((sum, a) => sum + ((a.cost) || 0), 0);
+            return (
+              <div key={date} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="font-medium">{date}</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-300">
+                    {arr.length} items • ${total.toFixed(2)}
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  {arr.map((a) => {
+                    const i = items.findIndex(it => it.id === a.id);
+                    const isSaving = savingItems.has(a.id);
+                    return (
+                      <div
+                        key={a.id}
+                        className="rounded-xl border border-slate-200/60 bg-white/70 p-3 space-y-2 dark:border-slate-700 dark:bg-slate-800/70 relative"
+                        draggable
+                        onDragStart={() => onDragStart(a.id)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => onDropOn(a.id)}
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.altKey && e.key === 'ArrowUp') onKeyReorder(a.id, 'up');
+                          if (e.altKey && e.key === 'ArrowDown') onKeyReorder(a.id, 'down');
+                        }}
+                      >
+                        {isSaving && (
+                          <div className="absolute top-2 right-2 text-xs text-blue-600 dark:text-blue-400">
+                            Saving...
+                          </div>
+                        )}
+                        
+                        <div className="grid gap-2 md:grid-cols-2">
+                          <input 
+                            className="input" 
+                            placeholder="Activity Title *" 
+                            value={a.title} 
+                            onChange={e => update(i, 'title', e.target.value)} 
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <input 
+                              className="input" 
+                              placeholder="Date (YYYY-MM-DD) *" 
+                              value={a.date} 
+                              onChange={e => update(i, 'date', e.target.value)} 
+                            />
+                            <input 
+                              className="input" 
+                              placeholder="Time (HH:MM)" 
+                              value={a.time} 
+                              onChange={e => update(i, 'time', e.target.value)} 
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid gap-2 md:grid-cols-2">
+                          <input 
+                            className="input" 
+                            placeholder="Location" 
+                            value={a.location} 
+                            onChange={e => update(i, 'location', e.target.value)} 
+                          />
+                          <input 
+                            className="input" 
+                            type="number" 
+                            step="0.01" 
+                            placeholder="Cost ($)" 
+                            value={a.cost ?? ''} 
+                            onChange={e => update(i, 'cost', e.target.value ? parseFloat(e.target.value) : '')} 
+                          />
+                        </div>
+
+                        {(a.lng !== undefined && a.lat !== undefined) && (
+                          <div className="text-xs text-slate-500">
+                            📍 {a.lat.toFixed(4)}, {a.lng.toFixed(4)}
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          {(a.lng !== undefined && a.lat !== undefined) && (
+                            <>
+                              <button 
+                                className="btn-secondary text-xs" 
+                                onClick={() => dispatchRoutePoint(a, 'origin')}
+                              >
+                                Set Origin
+                              </button>
+                              <button 
+                                className="btn-secondary text-xs" 
+                                onClick={() => dispatchRoutePoint(a, 'destination')}
+                              >
+                                Set Destination
+                              </button>
+                            </>
+                          )}
+                          <button 
+                            className="btn-secondary text-xs text-red-600 dark:text-red-400 ml-auto" 
+                            onClick={() => removeItem(a)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+
+                        {a.isNew && (
+                          <div className="text-xs text-amber-600 dark:text-amber-400">
+                            * Fill in title and date, changes save automatically
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
-  )
+  );
 }

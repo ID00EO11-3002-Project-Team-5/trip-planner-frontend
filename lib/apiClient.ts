@@ -199,16 +199,25 @@ export const settlementsApi = {
 
 // ==================== ITINERARY API ====================
 
+export interface LocationData {
+  name_loca: string;
+  coordinates: {
+    lat: number;
+    lng: number;
+  } | null;
+}
+
 export interface ItineraryItem {
-  id: string;
-  trip_id: string;
-  title: string;
-  description?: string;
-  start_time?: string;
-  end_time?: string;
-  location?: string;
-  order_index?: number;
-  created_at?: string;
+  id_itit: string;
+  id_trip: string;
+  title_itit: string;
+  date_itit: string; // YYYY-MM-DD
+  time_itit?: string; // HH:mm:ss
+  location_itit?: string | null;
+  cost_itit?: number | null;
+  position_itit: number;
+  id_loca?: string | null;
+  formal_location?: LocationData | null;
 }
 
 export const itineraryApi = {
@@ -216,17 +225,17 @@ export const itineraryApi = {
     return apiCall(`/itinerary/trip/${tripId}`);
   },
 
-  create: async (item: Partial<ItineraryItem>): Promise<ItineraryItem> => {
+  create: async (item: Omit<ItineraryItem, 'id_itit' | 'formal_location'>): Promise<ItineraryItem> => {
     return apiCall('/itinerary', {
       method: 'POST',
       body: item,
     });
   },
 
-  reorder: async (tripId: string, itemIds: string[]): Promise<void> => {
+  reorder: async (tripId: string, updates: { id_itit: string; position_itit: number }[]): Promise<void> => {
     return apiCall('/itinerary/reorder', {
       method: 'PATCH',
-      body: { tripId, itemIds },
+      body: { tripId, updates },
     });
   },
 
@@ -240,28 +249,32 @@ export const itineraryApi = {
 // ==================== DESTINATION STOPS API ====================
 
 export interface DestinationStop {
-  id: string;
-  trip_id: string;
-  name: string;
-  latitude: number;
-  longitude: number;
-  order_index?: number;
-  notes?: string;
-  created_at?: string;
+  id_loca: string;
+  id_trip: string;
+  name_loca: string;
+  coordinates: {
+    lat: number;
+    lng: number;
+  } | null;
+  createdat_loca?: string;
 }
 
 export const stopsApi = {
-  create: async (stop: Partial<DestinationStop>): Promise<DestinationStop> => {
+  create: async (stop: {
+    id_trip: string;
+    name_loca: string;
+    coordinates?: { lat: number; lng: number };
+  }): Promise<DestinationStop> => {
     return apiCall('/stops', {
       method: 'POST',
       body: stop,
     });
   },
 
-  reorder: async (tripId: string, stopIds: string[]): Promise<void> => {
+  reorder: async (updates: { id_loca: string; position_loca: number }[]): Promise<void> => {
     return apiCall('/stops/reorder', {
       method: 'PATCH',
-      body: { tripId, stopIds },
+      body: { updates },
     });
   },
 };

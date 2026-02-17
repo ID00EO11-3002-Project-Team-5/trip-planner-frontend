@@ -19,10 +19,6 @@ export default function WorkspacePage() {
   const [tripData, setTripData] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  
-  // Fallback data for other components
-  const participants = ['Alex', 'Jordan', 'Pax']
-  const total = 2400
 
   useEffect(() => {
     if (tripId) {
@@ -63,7 +59,7 @@ export default function WorkspacePage() {
         
         {/* Itinerary - Full Width */}
         <div className="glass-card p-3 sm:p-4 md:p-6">
-          <ItineraryBuilder />
+          <ItineraryBuilder tripId={tripId} />
         </div>
         
         {/* Map View - Full Width */}
@@ -88,7 +84,7 @@ export default function WorkspacePage() {
         {/* Bottom Section */}
         <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
           <div className="glass-card p-3 sm:p-4 md:p-6">
-            <BudgetPanel total={total} participants={participants} />
+            <BudgetPanel tripId={tripId} />
           </div>
           <CommentsPanel tripId={tripId} />
         </div>
