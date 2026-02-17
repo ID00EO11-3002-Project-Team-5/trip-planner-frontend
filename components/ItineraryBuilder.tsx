@@ -440,10 +440,17 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
                   {arr.map((a) => {
                     const i = items.findIndex(it => it.id === a.id);
                     const isSaving = savingItems.has(a.id);
+                    const isRouteStop = a.title.startsWith('📍 ');
                     return (
                       <div
                         key={a.id}
-                        className="rounded-xl border border-slate-200/60 bg-white/70 p-3 space-y-2 dark:border-slate-700 dark:bg-slate-800/70 relative"
+                        className={`
+                          rounded-xl border p-3 space-y-2 relative
+                          ${isRouteStop 
+                            ? 'border-blue-300 bg-blue-50/70 dark:border-blue-700 dark:bg-blue-900/20' 
+                            : 'border-slate-200/60 bg-white/70 dark:border-slate-700 dark:bg-slate-800/70'
+                          }
+                        `}
                         draggable
                         onDragStart={() => onDragStart(a.id)}
                         onDragOver={(e) => e.preventDefault()}
@@ -460,25 +467,40 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
                           </div>
                         )}
                         
+                        {isRouteStop && (
+                          <div className="flex items-center gap-2 mb-2 pb-2 border-b border-blue-200 dark:border-blue-800">
+                            <span className="text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 rounded">
+                              🗺️ Route Stop
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              Managed in Destination Stops panel
+                            </span>
+                          </div>
+                        )}
+                        
                         <div className="grid gap-2 md:grid-cols-2">
                           <input 
                             className="input" 
                             placeholder="Activity Title *" 
                             value={a.title} 
-                            onChange={e => update(i, 'title', e.target.value)} 
+                            onChange={e => update(i, 'title', e.target.value)}
+                            disabled={isRouteStop}
+                            title={isRouteStop ? "Route stops are managed in the Destination Stops panel" : undefined}
                           />
                           <div className="grid grid-cols-2 gap-2">
                             <input 
                               className="input" 
                               placeholder="Date (YYYY-MM-DD) *" 
                               value={a.date} 
-                              onChange={e => update(i, 'date', e.target.value)} 
+                              onChange={e => update(i, 'date', e.target.value)}
+                              disabled={isRouteStop}
                             />
                             <input 
                               className="input" 
                               placeholder="Time (HH:MM)" 
                               value={a.time} 
-                              onChange={e => update(i, 'time', e.target.value)} 
+                              onChange={e => update(i, 'time', e.target.value)}
+                              disabled={isRouteStop}
                             />
                           </div>
                         </div>
@@ -488,7 +510,8 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
                             className="input" 
                             placeholder="Location" 
                             value={a.location} 
-                            onChange={e => update(i, 'location', e.target.value)} 
+                            onChange={e => update(i, 'location', e.target.value)}
+                            disabled={isRouteStop}
                           />
                           <input 
                             className="input" 
@@ -496,7 +519,8 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
                             step="0.01" 
                             placeholder="Cost ($)" 
                             value={a.cost ?? ''} 
-                            onChange={e => update(i, 'cost', e.target.value ? parseFloat(e.target.value) : '')} 
+                            onChange={e => update(i, 'cost', e.target.value ? parseFloat(e.target.value) : '')}
+                            disabled={isRouteStop}
                           />
                         </div>
 
@@ -507,7 +531,7 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
                         )}
 
                         <div className="flex flex-wrap items-center gap-2">
-                          {(a.lng !== undefined && a.lat !== undefined) && (
+                          {!isRouteStop && (a.lng !== undefined && a.lat !== undefined) && (
                             <>
                               <button 
                                 className="btn-secondary text-xs" 
@@ -523,12 +547,19 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
                               </button>
                             </>
                           )}
-                          <button 
-                            className="btn-secondary text-xs text-red-600 dark:text-red-400 ml-auto" 
-                            onClick={() => removeItem(a)}
-                          >
-                            Delete
-                          </button>
+                          {!isRouteStop && (
+                            <button 
+                              className="btn-secondary text-xs text-red-600 dark:text-red-400 ml-auto" 
+                              onClick={() => removeItem(a)}
+                            >
+                              Delete
+                            </button>
+                          )}
+                          {isRouteStop && (
+                            <div className="text-xs text-slate-500 ml-auto italic">
+                              Delete in Destination Stops panel
+                            </div>
+                          )}
                         </div>
 
                         {a.isNew && (

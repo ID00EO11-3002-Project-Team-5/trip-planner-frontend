@@ -1,13 +1,15 @@
 "use client";
 import { useEffect, useState, useCallback } from 'react';
-import { apiClient, type DestinationStop } from '@/lib/apiClient';
+import { apiClient, type ItineraryItem } from '@/lib/apiClient';
+import { calculateDistance, estimateTravelTime, formatDistance, formatTravelTime } from '@/lib/geoUtils';
 
 interface DestinationStopsProps {
   tripId: string;
-  onStopSelected?: (stop: DestinationStop) => void;
+  onStopSelected?: (stop: RouteStop) => void;
 }
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+const ROUTE_STOP_PREFIX = '📍 ';
 
 type MapboxFeature = {
   place_name: string;
@@ -15,8 +17,16 @@ type MapboxFeature = {
   text: string;
 };
 
+type RouteStop = {
+  id: string;
+  name: string;
+  coordinates: { lat: number; lng: number } | null;
+  position: number;
+};
+
 export function DestinationStops({ tripId, onStopSelected }: DestinationStopsProps) {
-  const [stops, setStops] = useState<DestinationStop[]>([]);
+  const [stops, setStops] = useState<RouteStop[]>([]);
+  const [allItems, setAllItems] = useState<ItineraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [locationSearch, setLocationSearch] = useState('');
   const [locationResults, setLocationResults] = useState<MapboxFeature[]>([]);
@@ -26,13 +36,41 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
   const loadStops = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await apiClient.stops.getByTrip(tripId);
-      setStops(data);
+      const items = await apiClient.itinerary.getByTrip(tripId);
+      setAllItems(items);
       
-      // Dispatch event to update map routes
+      // Filter route stops (items with 📍 prefix) and convert to RouteStop format
+      const routeStops: RouteStop[] = items
+        .filter(item => item.title_itit.startsWith(ROUTE_STOP_PREFIX))
+        .sort((a, b) => a.position_itit - b.position_itit)
+        .map(item => {
+          let coordinates: { lat: number; lng: number } | null = null;
+          if (item.location_itit) {
+            try {
+              coordinates = JSON.parse(item.location_itit);
+            } catch (e) {
+              console.warn('Failed to parse coordinates:', item.location_itit);
+            }
+          }
+          
+          return {
+            id: item.id_itit,
+            name: item.title_itit.replace(ROUTE_STOP_PREFIX, ''),
+            coordinates,
+            position: item.position_itit,
+          };
+        });
+      
+      setStops(routeStops);
+      
+      // Dispatch event to update map routes (convert to old format for compatibility)
       try {
+        const stopsForMap = routeStops.map(s => ({
+          id_loca: s.id,
+          coordinates: s.coordinates
+        }));
         window.dispatchEvent(new CustomEvent('destinations-updated', { 
-          detail: { stops: data } 
+          detail: { stops: stopsForMap } 
         }));
       } catch {}
     } catch (error) {
@@ -79,34 +117,52 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
 
   async function addStop(feature: MapboxFeature) {
     try {
-      const newStop = await apiClient.stops.create({
+      // Get the next position (after all existing items)
+      const maxPosition = Math.max(0, ...allItems.map(i => i.position_itit));
+      const nextPosition = maxPosition + 1;
+      
+      const coordinates = {
+        lat: feature.center[1],
+        lng: feature.center[0],
+      };
+      
+      const newItem = await apiClient.itinerary.create({
         id_trip: tripId,
-        name_loca: feature.text || feature.place_name,
-        coordinates: {
-          lng: feature.center[0],
-          lat: feature.center[1],
-        },
+        title_itit: ROUTE_STOP_PREFIX + (feature.text || feature.place_name),
+        date_itit: new Date().toISOString().split('T')[0], // Today's date
+        location_itit: JSON.stringify(coordinates),
+        position_itit: nextPosition,
+        id_loca: null,
       });
 
+      const newStop: RouteStop = {
+        id: newItem.id_itit,
+        name: newItem.title_itit.replace(ROUTE_STOP_PREFIX, ''),
+        coordinates,
+        position: newItem.position_itit,
+      };
+
       setStops(prev => [...prev, newStop]);
+      setAllItems(prev => [...prev, newItem]);
       setLocationSearch('');
       setLocationResults([]);
       setShowSearch(false);
 
-      // Dispatch map event to show marker
-      if (newStop.coordinates) {
-        try {
-          window.dispatchEvent(new CustomEvent('destination-added', { 
-            detail: { 
-              stop: newStop,
-              coords: [newStop.coordinates.lng, newStop.coordinates.lat] 
-            } 
-          }));
-        } catch {}
-      }
+      // Dispatch map event to show marker (use old field names for compatibility)
+      try {
+        window.dispatchEvent(new CustomEvent('destination-added', { 
+          detail: { 
+            stop: { id_loca: newStop.id, name_loca: newStop.name },
+            coords: [coordinates.lng, coordinates.lat] 
+          } 
+        }));
+      } catch {}
       
-      // Update the full stops list for route drawing
-      const updatedStops = [...stops, newStop];
+      // Update the full stops list for route drawing (convert to old format)
+      const updatedStops = [...stops, newStop].map(s => ({
+        id_loca: s.id,
+        coordinates: s.coordinates
+      }));
       try {
         window.dispatchEvent(new CustomEvent('destinations-updated', { 
           detail: { stops: updatedStops } 
@@ -119,8 +175,9 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
 
   async function deleteStop(stopId: string) {
     try {
-      await apiClient.stops.delete(stopId);
-      setStops(prev => prev.filter(s => s.id_loca !== stopId));
+      await apiClient.itinerary.delete(stopId);
+      setStops(prev => prev.filter(s => s.id !== stopId));
+      setAllItems(prev => prev.filter(i => i.id_itit !== stopId));
 
       // Dispatch map event to remove marker
       try {
@@ -152,8 +209,8 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
       return;
     }
 
-    const draggedIndex = stops.findIndex(s => s.id_loca === draggedId);
-    const targetIndex = stops.findIndex(s => s.id_loca === targetId);
+    const draggedIndex = stops.findIndex(s => s.id === draggedId);
+    const targetIndex = stops.findIndex(s => s.id === targetId);
 
     if (draggedIndex < 0 || targetIndex < 0) {
       setDraggedId(null);
@@ -165,25 +222,31 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
     const [movedStop] = newStops.splice(draggedIndex, 1);
     newStops.splice(targetIndex, 0, movedStop);
 
-    // Update positions
+    // Update positions for all route stops only
     const updates = newStops.map((stop, index) => ({
-      id_loca: stop.id_loca,
-      position_loca: index,
+      id_itit: stop.id,
+      position_itit: stop.position + (index - stops.findIndex(s => s.id === stop.id)),
     }));
 
     setStops(newStops);
     setDraggedId(null);
 
-    // Dispatch event to update map routes with new order
+    // Dispatch event to update map routes with new order (convert to old format)
     try {
+      const stopsForMap = newStops.map(s => ({
+        id_loca: s.id,
+        coordinates: s.coordinates
+      }));
       window.dispatchEvent(new CustomEvent('destinations-updated', { 
-        detail: { stops: newStops } 
+        detail: { stops: stopsForMap } 
       }));
     } catch {}
 
-    // Save to backend
+    // Save to backend using itinerary reorder
     try {
-      await apiClient.stops.reorder(updates);
+      await apiClient.itinerary.reorder(tripId, updates);
+      // Reload to get updated positions
+      loadStops();
     } catch (error) {
       console.error('Failed to reorder stops:', error);
       // Reload on error
@@ -191,7 +254,7 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
     }
   }
 
-  function showOnMap(stop: DestinationStop) {
+  function showOnMap(stop: RouteStop) {
     if (stop.coordinates) {
       try {
         window.dispatchEvent(new CustomEvent('map-focus', { 
@@ -203,6 +266,124 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
       } catch {}
     }
     onStopSelected?.(stop);
+  }
+
+  function getLinkedActivities(stopId: string): ItineraryItem[] {
+    // Find activities that are NOT route stops and don't have id_loca set
+    // (we'll use proximity or manual linking in the future)
+    return allItems.filter(item => 
+      !item.title_itit.startsWith(ROUTE_STOP_PREFIX) && 
+      item.id_loca === stopId
+    );
+  }
+
+  function calculateStopDistance(index: number): { distance: number; travelTime: { hours: number; minutes: number; totalMinutes: number } } | null {
+    if (index === 0 || !stops[index].coordinates || !stops[index - 1].coordinates) {
+      return null;
+    }
+    
+    const current = stops[index].coordinates!;
+    const previous = stops[index - 1].coordinates!;
+    
+    const distance = calculateDistance(
+      previous.lat,
+      previous.lng,
+      current.lat,
+      current.lng
+    );
+    
+    const travelTime = estimateTravelTime(distance, 'driving');
+    
+    return { distance, travelTime };
+  }
+
+  function exportToGPX() {
+    const stopsWithCoords = stops.filter(s => s.coordinates);
+    if (stopsWithCoords.length === 0) {
+      alert('No stops with coordinates to export');
+      return;
+    }
+
+    const waypoints = stopsWithCoords
+      .map((stop, i) => `
+    <wpt lat="${stop.coordinates!.lat}" lon="${stop.coordinates!.lng}">
+      <name>${stop.name}</name>
+      <desc>Stop ${i + 1}</desc>
+    </wpt>`)
+      .join('');
+
+    const trackPoints = stopsWithCoords
+      .map(stop => `
+        <trkpt lat="${stop.coordinates!.lat}" lon="${stop.coordinates!.lng}">
+          <name>${stop.name}</name>
+        </trkpt>`)
+      .join('');
+
+    const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Trip Planner" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata>
+    <name>Trip Route</name>
+    <desc>Destination stops route</desc>
+  </metadata>${waypoints}
+  <trk>
+    <name>Route</name>
+    <trkseg>${trackPoints}
+    </trkseg>
+  </trk>
+</gpx>`;
+
+    downloadFile(gpx, 'trip-route.gpx', 'application/gpx+xml');
+  }
+
+  function exportToKML() {
+    const stopsWithCoords = stops.filter(s => s.coordinates);
+    if (stopsWithCoords.length === 0) {
+      alert('No stops with coordinates to export');
+      return;
+    }
+
+    const placemarks = stopsWithCoords
+      .map((stop, i) => `
+    <Placemark>
+      <name>${stop.name}</name>
+      <description>Stop ${i + 1}</description>
+      <Point>
+        <coordinates>${stop.coordinates!.lng},${stop.coordinates!.lat},0</coordinates>
+      </Point>
+    </Placemark>`)
+      .join('');
+
+    const lineCoordinates = stopsWithCoords
+      .map(stop => `${stop.coordinates!.lng},${stop.coordinates!.lat},0`)
+      .join(' ');
+
+    const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Trip Route</name>
+    <description>Destination stops route</description>${placemarks}
+    <Placemark>
+      <name>Route</name>
+      <LineString>
+        <coordinates>${lineCoordinates}</coordinates>
+      </LineString>
+    </Placemark>
+  </Document>
+</kml>`;
+
+    downloadFile(kml, 'trip-route.kml', 'application/vnd.google-earth.kml+xml');
+  }
+
+  function downloadFile(content: string, filename: string, mimeType: string) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   if (loading) {
@@ -224,12 +405,35 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="font-medium">Destination Stops</h3>
-        <button 
-          className="btn-secondary text-xs"
-          onClick={() => setShowSearch(!showSearch)}
-        >
-          {showSearch ? 'Close' : '📍 Add Stop'}
-        </button>
+        <div className="flex gap-1">
+          {stops.length > 0 && (
+            <div className="relative group">
+              <button className="btn-secondary text-xs px-2 py-1">
+                ⬇️
+              </button>
+              <div className="absolute right-0 mt-1 hidden group-hover:block bg-white dark:bg-slate-800 shadow-lg rounded-lg border border-slate-200 dark:border-slate-700 py-1 z-10 min-w-[120px]">
+                <button
+                  onClick={exportToGPX}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  Export GPX
+                </button>
+                <button
+                  onClick={exportToKML}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  Export KML
+                </button>
+              </div>
+            </div>
+          )}
+          <button 
+            className="btn-secondary text-xs"
+            onClick={() => setShowSearch(!showSearch)}
+          >
+            {showSearch ? 'Close' : '📍 Add Stop'}
+          </button>
+        </div>
       </div>
 
       {/* Mapbox Search */}
@@ -272,62 +476,129 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
         </div>
       ) : (
         <div className="space-y-2">
-          {stops.map((stop, index) => (
-            <div
-              key={stop.id_loca}
-              draggable
-              onDragStart={(e) => handleDragStart(e, stop.id_loca)}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, stop.id_loca)}
-              className={`
-                rounded-lg border border-slate-200/60 bg-white/70 p-3 
-                dark:border-slate-700 dark:bg-slate-800/70
-                cursor-move hover:border-slate-300 dark:hover:border-slate-600
-                transition-all
-                ${draggedId === stop.id_loca ? 'opacity-50' : ''}
-              `}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                      #{index + 1}
-                    </span>
-                    <h4 className="font-medium text-sm truncate">{stop.name_loca}</h4>
+          {stops.map((stop, index) => {
+            const distanceInfo = calculateStopDistance(index);
+            const linkedItems = getLinkedActivities(stop.id);
+            
+            return (
+              <div key={stop.id}>
+                {/* Distance indicator between stops */}
+                {distanceInfo && (
+                  <div className="flex items-center gap-2 py-1 px-2 text-xs text-slate-500">
+                    <div className="flex-1 border-t border-dashed border-slate-300 dark:border-slate-600"></div>
+                    <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded">
+                      <span>🚗 {formatDistance(distanceInfo.distance)}</span>
+                      <span>⏱️ {formatTravelTime(distanceInfo.travelTime.hours, distanceInfo.travelTime.minutes)}</span>
+                    </div>
+                    <div className="flex-1 border-t border-dashed border-slate-300 dark:border-slate-600"></div>
                   </div>
-                  {stop.coordinates && (
-                    <p className="text-xs text-slate-500 mt-1">
-                      📍 {stop.coordinates.lat.toFixed(4)}, {stop.coordinates.lng.toFixed(4)}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
-                  {stop.coordinates && (
-                    <button
-                      className="btn-secondary text-xs px-2 py-1"
-                      onClick={() => showOnMap(stop)}
-                      title="Show on map"
-                    >
-                      🗺️
-                    </button>
-                  )}
-                  <button
-                    className="btn-secondary text-xs px-2 py-1 text-red-600 dark:text-red-400"
-                    onClick={() => deleteStop(stop.id_loca)}
-                    title="Delete stop"
-                  >
-                    ×
-                  </button>
+                )}
+                
+                <div
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, stop.id)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, stop.id)}
+                  className={`
+                    rounded-lg border border-slate-200/60 bg-white/70 p-3 
+                    dark:border-slate-700 dark:bg-slate-800/70
+                    cursor-move hover:border-slate-300 dark:hover:border-slate-600
+                    transition-all
+                    ${draggedId === stop.id ? 'opacity-50' : ''}
+                  `}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                          #{index + 1}
+                        </span>
+                        <h4 className="font-medium text-sm truncate">{stop.name}</h4>
+                      </div>
+                      {stop.coordinates && (
+                        <p className="text-xs text-slate-500 mt-1">
+                          📍 {stop.coordinates.lat.toFixed(4)}, {stop.coordinates.lng.toFixed(4)}
+                        </p>
+                      )}
+                      {linkedItems.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                          <p className="text-xs text-slate-500 mb-1">📅 Linked activities:</p>
+                          <div className="space-y-1">
+                            {linkedItems.map(item => (
+                              <div key={item.id_itit} className="text-xs bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
+                                {item.title_itit} {item.date_itit && `• ${item.date_itit}`}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {stop.coordinates && (
+                        <button
+                          className="btn-secondary text-xs px-2 py-1"
+                          onClick={() => showOnMap(stop)}
+                          title="Show on map"
+                        >
+                          🗺️
+                        </button>
+                      )}
+                      <button
+                        className="btn-secondary text-xs px-2 py-1 text-red-600 dark:text-red-400"
+                        onClick={() => deleteStop(stop.id)}
+                        title="Delete stop"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      <div className="text-xs text-slate-500 dark:text-slate-400">
-        💡 Drag stops to reorder your route
-      </div>
+      {stops.length > 0 && (
+        <>
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            💡 Drag stops to reorder your route
+          </div>
+          
+          {stops.length > 1 && stops.every(s => s.coordinates) && (
+            <div className="glass-card p-3">
+              <div className="text-xs font-medium mb-2">Route Summary</div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-slate-50 dark:bg-slate-800 px-2 py-1.5 rounded">
+                  <div className="text-slate-500">Total Distance</div>
+                  <div className="font-medium">
+                    {formatDistance(
+                      stops.reduce((total, stop, index) => {
+                        const info = calculateStopDistance(index);
+                        return total + (info?.distance || 0);
+                      }, 0)
+                    )}
+                  </div>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-800 px-2 py-1.5 rounded">
+                  <div className="text-slate-500">Est. Drive Time</div>
+                  <div className="font-medium">
+                    {(() => {
+                      const totalMinutes = stops.reduce((total, stop, index) => {
+                        const info = calculateStopDistance(index);
+                        return total + (info?.travelTime.totalMinutes || 0);
+                      }, 0);
+                      const hours = Math.floor(totalMinutes / 60);
+                      const minutes = totalMinutes % 60;
+                      return formatTravelTime(hours, minutes);
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
