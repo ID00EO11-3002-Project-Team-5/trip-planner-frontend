@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import MapClient from '../../../components/MapClient'
 import { ItineraryBuilder } from '../../../components/ItineraryBuilder'
 import { BudgetPanel } from '../../../components/BudgetPanel'
@@ -13,7 +13,9 @@ import { ProtectedRoute } from '../../../components/ProtectedRoute'
 import apiClient from '@/lib/apiClient';
 import type { Trip } from '@/lib/apiClient';
 
-export default function WorkspacePage({ params }: { params: { tripId: string } }) {
+export default function WorkspacePage() {
+  const params = useParams();
+  const tripId = params?.tripId as string;
   const [tripData, setTripData] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -23,13 +25,17 @@ export default function WorkspacePage({ params }: { params: { tripId: string } }
   const total = 2400
 
   useEffect(() => {
-    loadTripData();
-  }, [params.tripId]);
+    if (tripId) {
+      loadTripData();
+    }
+  }, [tripId]);
 
   const loadTripData = async () => {
+    if (!tripId) return;
+    
     try {
       setLoading(true);
-      const data = await apiClient.trips.getById(params.tripId);
+      const data = await apiClient.trips.getById(tripId);
       setTripData(data);
     } catch (error) {
       console.error('Error loading trip:', error);
@@ -49,7 +55,7 @@ export default function WorkspacePage({ params }: { params: { tripId: string } }
       <div className="space-y-4 sm:space-y-6 md:space-y-8">
         {/* Header Section */}
         <TripHeader 
-          tripId={params.tripId} 
+          tripId={tripId} 
           tripData={tripData} 
           loading={loading}
           onUpdate={handleTripUpdate}
@@ -84,7 +90,7 @@ export default function WorkspacePage({ params }: { params: { tripId: string } }
           <div className="glass-card p-3 sm:p-4 md:p-6">
             <BudgetPanel total={total} participants={participants} />
           </div>
-          <CommentsPanel tripId={params.tripId} />
+          <CommentsPanel tripId={tripId} />
         </div>
       </div>
     </ProtectedRoute>
