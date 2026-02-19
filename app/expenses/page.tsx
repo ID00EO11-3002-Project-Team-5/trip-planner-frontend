@@ -128,10 +128,6 @@ function ExpensesContent() {
     setShowForm(true);
   };
 
-  const handleCancelForm = () => {
-    setShowForm(false);
-    
-
   const handleExportCSV = () => {
     const selectedTrip = trips.find(t => t.id_trip === selectedTripId);
     exportExpensesToCSV(expenses, selectedTrip?.title_trip || 'expenses');

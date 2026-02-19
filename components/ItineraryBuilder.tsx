@@ -482,7 +482,6 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
               📊 Timeline
             </button>
           </div>
-          <>
           <button 
             className="btn-secondary text-xs whitespace-nowrap" 
             onClick={() => setShowLocationSearch(!showLocationSearch)}
