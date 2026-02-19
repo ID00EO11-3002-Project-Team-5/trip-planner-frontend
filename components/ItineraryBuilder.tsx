@@ -541,18 +541,7 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
               {locationResults.map((feature, idx) => (
                 <button
                   key={idx}
-          viewMode === 'timeline' ? (
-        <ItineraryTimeline 
-          activities={filtered.map(a => ({
-            id: a.id,
-            title: a.title,
-            date: a.date,
-            time: a.time,
-            cost: a.cost,
-            duration: 1, // Default 1 hour, could be made configurable
-          }))}
-        />
-      ) :         className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-sm"
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-sm"
                   onClick={() => selectLocation(feature)}
                 >
                   <div className="font-medium">{feature.text}</div>
@@ -569,7 +558,18 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
         </div>
       )}
 
-      {items.length === 0 ? (
+      {viewMode === 'timeline' && filtered.length > 0 ? (
+        <ItineraryTimeline 
+          activities={filtered.map(a => ({
+            id: a.id,
+            title: a.title,
+            date: a.date,
+            time: a.time,
+            cost: a.cost,
+            duration: 1,
+          }))}
+        />
+      ) : items.length === 0 ? (
         <div className="text-center py-8 text-slate-500">
           <p className="mb-2">No activities yet</p>
           <p className="text-sm">Add activities manually or search for places to visit</p>
