@@ -13,10 +13,13 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
     "decimal.js-light": "^2.5.1",
+    "jspdf": "^4.2.0",
+    "jspdf-autotable": "^5.0.7",
     "mapbox-gl": "^3.3.0",
     "next": "16.1.6",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "recharts": "^3.7.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.2",

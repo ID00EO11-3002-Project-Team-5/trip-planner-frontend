@@ -6,6 +6,8 @@ import apiClient, { Expense, Trip, CreateExpensePayload } from "@/lib/apiClient"
 import { ExpenseList } from "@/components/ExpenseList";
 import { ExpenseForm } from "@/components/ExpenseForm";
 import { ExpenseSummary } from "@/components/ExpenseSummary";
+import { ExpenseStats } from "@/components/ExpenseStats";
+import { exportExpensesToCSV, exportExpensesToPDF } from "@/lib/exportUtils";
 import { useToast } from "@/components/ToastProvider";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
@@ -18,6 +20,7 @@ function ExpensesContent() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [tripMembers, setTripMembers] = useState<Array<{ id: string; name?: string; email?: string }>>([]);
 
@@ -127,7 +130,19 @@ function ExpensesContent() {
 
   const handleCancelForm = () => {
     setShowForm(false);
-    setEditingExpense(null);
+    
+
+  const handleExportCSV = () => {
+    const selectedTrip = trips.find(t => t.id_trip === selectedTripId);
+    exportExpensesToCSV(expenses, selectedTrip?.title_trip || 'expenses');
+    show("Expenses exported to CSV!");
+  };
+
+  const handleExportPDF = () => {
+    const selectedTrip = trips.find(t => t.id_trip === selectedTripId);
+    exportExpensesToPDF(expenses, selectedTrip?.title_trip || 'Expenses Report');
+    show("Expenses exported to PDF!");
+  };setEditingExpense(null);
   };
 
   return (
@@ -149,15 +164,70 @@ function ExpensesContent() {
             onChange={(e) => {
               setSelectedTripId(e.target.value);
               setShowForm(false);
-              setEditingExpense(null);
-            }}
-          >
-            <option value="">Select a trip</option>
-            {trips.map((trip) => (
-              <option key={trip.id_trip} value={trip.id_trip}>
-                {trip.title_trip}
-              </option>
-            ))}
+             >
+              <button
+                onClick={() => setShowForm(true)}
+                className="btn-primary flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add Expense
+              </button>
+              
+              {expenses.length > 0 && (
+                <>
+                  <button
+                    onClick={() => setShowStats(!showStats)}
+                    className="btn-secondary flex items-center gap-2"
+                  >
+                    📊 {showStats ? 'Hide' : 'Show'} Analytics
+                  </button>
+                  <div className="relative">
+                    <button
+                      className="btn-secondary flex items-center gap-2"
+                      onClick={() => {
+                        const menu = document.getElementById('export-menu');
+                        menu?.classList.toggle('hidden');
+                      }}
+                    >
+                      💾 Export
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    <div id="export-menu" className="hidden absolute right-0 mt-2 w-36 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden z-10">
+                      <button
+                        onClick={() => {
+                          handleExportCSV();
+                          document.getElementById('export-menu')?.classList.add('hidden');
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition"
+                      >
+                        📄 Export CSV
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleExportPDF();
+                          document.getElementById('export-menu')?.classList.add('hidden');
+              Analytics Dashboard */}
+          {!showForm && showStats && expenses.length > 0 && (
+            <ExpenseStats 
+              expenses={expenses}
+              budgetAmount={trips.find(t => t.id_trip === selectedTripId)?.budget_trip}
+            />
+          )}
+
+          {/*           }}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition"
+                      >
+                        📑 Export PDF
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </
           </select>
 
           {selectedTripId && !showForm && (

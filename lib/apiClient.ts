@@ -44,6 +44,26 @@ async function apiCall<T>(endpoint: string, options: ApiOptions = {}): Promise<T
 
   const response = await fetch(`${API_URL}${endpoint}`, config);
 
+  // Handle 401 Unauthorized - token expired or invalid
+  if (response.status === 401) {
+    if (typeof window !== 'undefined') {
+      // Clear authentication data
+      localStorage.removeItem('authToken');
+      
+      // Dispatch custom event to notify auth context
+      window.dispatchEvent(new CustomEvent('auth:logout', { detail: { reason: 'token-expired' } }));
+      
+      // Redirect to login with expired flag
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login' && currentPath !== '/signup') {
+        window.location.href = '/login?expired=true';
+      }
+    }
+    
+    const error = await response.json().catch(() => ({ error: 'Token is invalid or expired' }));
+    throw new Error(error.error || 'Token is invalid or expired');
+  }
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'An error occurred' }));
     throw new Error(error.error || `HTTP error! status: ${response.status}`);
@@ -220,6 +240,13 @@ export interface ItineraryItem {
   formal_location?: LocationData | null;
 }
 
+export interface ItineraryCostSummary {
+  tripId: string;
+  totalCost: number;
+  currency: string;
+  itemsCount: number;
+}
+
 export const itineraryApi = {
   getByTrip: async (tripId: string): Promise<ItineraryItem[]> => {
     return apiCall(`/itinerary/trip/${tripId}`);
@@ -229,6 +256,13 @@ export const itineraryApi = {
     return apiCall('/itinerary', {
       method: 'POST',
       body: item,
+    });
+  },
+
+  update: async (itemId: string, updates: Partial<Omit<ItineraryItem, 'id_itit' | 'formal_location'>>): Promise<ItineraryItem> => {
+    return apiCall(`/itinerary/${itemId}`, {
+      method: 'PATCH',
+      body: updates,
     });
   },
 
@@ -243,6 +277,10 @@ export const itineraryApi = {
     return apiCall(`/itinerary/${itemId}`, {
       method: 'DELETE',
     });
+  },
+
+  getCostSummary: async (tripId: string): Promise<ItineraryCostSummary | null> => {
+    return apiCall(`/itinerary/trip/${tripId}/costs`);
   },
 };
 

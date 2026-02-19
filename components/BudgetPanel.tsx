@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/authContext';
 export function BudgetPanel({ tripId }: { tripId: string }) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
+  const [itineraryCost, setItineraryCost] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   
@@ -20,12 +21,14 @@ export function BudgetPanel({ tripId }: { tripId: string }) {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [expensesData, settlementsData] = await Promise.all([
+      const [expensesData, settlementsData, costSummary] = await Promise.all([
         apiClient.expenses.getByTrip(tripId),
         apiClient.settlements.getByTrip(tripId),
+        apiClient.itinerary.getCostSummary(tripId).catch(() => null),
       ]);
       setExpenses(expensesData);
       setSettlements(settlementsData);
+      setItineraryCost(costSummary?.totalCost || 0);
     } catch (error) {
       console.error('Failed to load budget data:', error);
     } finally {
@@ -34,8 +37,11 @@ export function BudgetPanel({ tripId }: { tripId: string }) {
   };
   
   // Calculate total from expenses
-  const total = expenses.reduce((sum, exp) => sum + exp.amount_expe, 0);
-  const t = new Decimal(total || 0);
+  const expenseTotal = expenses.reduce((sum, exp) => sum + exp.amount_expe, 0);
+  const combinedTotal = expenseTotal + itineraryCost;
+  const t = new Decimal(combinedTotal || 0);
+  const expenseT = new Decimal(expenseTotal || 0);
+  const itineraryT = new Decimal(itineraryCost || 0);
   
   // Get unique participants from expense shares
   const participantsSet = new Set<string>();
@@ -75,14 +81,30 @@ export function BudgetPanel({ tripId }: { tripId: string }) {
       
       <div className="grid grid-cols-2 gap-2 sm:gap-4">
         <div className="rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-800 p-3 sm:p-4">
-          <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Total spend</div>
+          <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Total Budget</div>
           <div className="text-lg sm:text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">${t.toFixed(2)}</div>
+          {itineraryCost > 0 && (
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Expenses: ${expenseT.toFixed(2)} • Itinerary: ${itineraryT.toFixed(2)}
+            </div>
+          )}
         </div>
         <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/30 dark:to-green-900/30 p-3 sm:p-4">
           <div className="text-xs sm:text-sm text-emerald-600 dark:text-emerald-400">Per person</div>
           <div className="text-lg sm:text-2xl font-bold tabular-nums text-emerald-700 dark:text-emerald-300">${perPerson}</div>
         </div>
       </div>
+      
+      {itineraryCost > 0 && (
+        <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3">
+          <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span>
+              Itinerary costs (${itineraryT.toFixed(2)}) are now synced with your budget
+            </span>
+          </div>
+        </div>
+      )}
       
       {expenses.length > 0 && (
         <div className="space-y-2">

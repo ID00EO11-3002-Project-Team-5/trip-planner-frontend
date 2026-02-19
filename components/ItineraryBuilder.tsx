@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { apiClient, type ItineraryItem, type DestinationStop } from '@/lib/apiClient'
+import { ItineraryTimeline } from './ItineraryTimeline'
 
 type Activity = { 
   id: string; 
@@ -23,35 +24,89 @@ type MapboxFeature = {
   text: string;
 }
 
+// Template activities for quick insertion
+const TEMPLATE_ACTIVITIES = [
+  { title: '🍳 Breakfast', time: '08:00', cost: 20 },
+  { title: '🏨 Hotel Check-in', time: '15:00', cost: 0 },
+  { title: '🏨 Hotel Check-out', time: '11:00', cost: 0 },
+  { title: '🍽️ Lunch', time: '12:00', cost: 25 },
+  { title: '🍽️ Dinner', time: '19:00', cost: 40 },
+  { title: '☕ Coffee Break', time: '10:00', cost: 8 },
+  { title: '🚗 Car Rental Pickup', time: '09:00', cost: 0 },
+  { title: '🚗 Car Rental Return', time: '17:00', cost: 0 },
+  { title: '✈️ Airport Transfer', time: '06:00', cost: 50 },
+];
+
 export function ItineraryBuilder({ tripId }: { tripId: string }) {
   const [items, setItems] = useState<Activity[]>([]);
+  const [stops, setStops] = useState<DestinationStop[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [locationSearch, setLocationSearch] = useState('');
   const [locationResults, setLocationResults] = useState<MapboxFeature[]>([]);
   const [showLocationSearch, setShowLocationSearch] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [savingItems, setSavingItems] = useState<Set<string>>(new Set());
+  const [conflicts, setConflicts] = useState<Set<string>>(new Set());
   const saveTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const isInitialized = useRef(false);
 
-  // Load items from backend
+  // Load items and stops from backend
   useEffect(() => {
     if (!tripId || isInitialized.current) return;
     isInitialized.current = true;
     loadItems();
+    loadStops();
   }, [tripId]);
+
+  async function loadStops() {
+    try {
+      const stopsData = await apiClient.stops.getByTrip(tripId);
+      setStops(stopsData);
+    } catch (error) {
+      console.error('Failed to load destination stops:', error);
+    }
+  }
 
   async function loadItems() {
     try {
       setLoading(true);
       const itineraryItems = await apiClient.itinerary.getByTrip(tripId);
       
-      const activities: Activity[] = itineraryItems.map((item) => ({
-        id: item.id_itit,
-        title: item.title_itit || '',
-        date: item.date_itit || '',
-        time: item.time_itit || '',
+      detectConflicts(activities);
+    } catch (error) {
+      console.error('Failed to load itinerary:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Detect overlapping activities (conflicts)
+  function detectConflicts(activities: Activity[]) {
+    const conflictSet = new Set<string>();
+    
+    for (let i = 0; i < activities.length; i++) {
+      for (let j = i + 1; j < activities.length; j++) {
+        const a = activities[i];
+        const b = activities[j];
+        
+        // Only check if same date and both have times
+        if (a.date === b.date && a.time && b.time) {
+          const timeA = parseTime(a.time);
+          const timeB = parseTime(b.time);
+          
+          // Consider activities conflicting if within 30 minutes of each other
+          if (Math.abs(timeA - timeB) < 30) {
+            conflictSet.add(a.id);
+            conflictSet.add(b.id);
+          }
+        }
+      }
+    }
+    
+    setConflicts(conflictSet);   time: item.time_itit || '',
         location: item.location_itit || item.formal_location?.name_loca || '',
         cost: item.cost_itit || undefined,
         lng: item.formal_location?.coordinates?.lng,
@@ -74,27 +129,38 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
     try {
       setSavingItems(prev => new Set(prev).add(item.id));
       
-      // Delete old item and create new one (since there's no PATCH endpoint)
-      if (!item.isNew) {
-        await apiClient.itinerary.delete(item.id);
+      if (item.isNew) {
+        // Calculate position based on current order
+        const position = items.findIndex(i => i.id === item.id);
+        
+        const newItem = await apiClient.itinerary.create({
+          id_trip: tripId,
+          title_itit: item.title,
+          date_itit: item.date,
+          time_itit: item.time || undefined,
+          location_itit: item.location || undefined,
+          cost_itit: item.cost,
+          position_itit: position,
+          id_loca: item.stopId,
+        });
+
+        // Update local state with real ID
+        setItems(prev => prev.map(i => i.id === item.id ? {
+          ...item,
+          id: newItem.id_itit,
+          isNew: false,
+        } : i));
+      } else {
+        // Use PATCH endpoint to update existing item
+        await apiClient.itinerary.update(item.id, {
+          title_itit: item.title,
+          date_itit: item.date,
+          time_itit: item.time || undefined,
+          location_itit: item.location || undefined,
+          cost_itit: item.cost,
+          id_loca: item.stopId,
+        });
       }
-
-      // Calculate position based on current order
-      const position = items.findIndex(i => i.id === item.id);
-      
-      await apiClient.itinerary.create({
-        id_trip: tripId,
-        title_itit: item.title,
-        date_itit: item.date,
-        time_itit: item.time || undefined,
-        location_itit: item.location || undefined,
-        cost_itit: item.cost,
-        position_itit: position,
-        id_loca: item.stopId,
-      });
-
-      // Reload to get updated data with proper IDs
-      await loadItems();
 
     } catch (error) {
       console.error('Failed to save item:', error);
@@ -157,6 +223,11 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
           lat: feature.center[1],
         },
       });
+    
+    // Re-detect conflicts when date or time changes
+    if (field === 'date' || field === 'time') {
+      detectConflicts(copy);
+    }
 
       // Add as new activity
       const newActivity: Activity = {
@@ -191,7 +262,21 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
 
   function update(i: number, field: keyof Activity, value: string | number) {
     const item = items[i];
-    if (!item) return;
+   
+
+  function addTemplate(template: typeof TEMPLATE_ACTIVITIES[0]) {
+    const newActivity: Activity = {
+      id: `temp-${Date.now()}`,
+      title: template.title,
+      date: '',  // User needs to set the date
+      time: template.time,
+      location: '',
+      cost: template.cost,
+      isNew: true,
+    };
+    setItems(prev => [...prev, newActivity]);
+    setShowTemplates(false);
+  } if (!item) return;
 
     const updated = { ...item, [field]: value };
     const copy = [...items];
@@ -374,18 +459,72 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
             placeholder="Search activities" 
             value={search} 
             onChange={e => setSearch(e.target.value)} 
-          />
+          /div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+            <button
+              className={`px-3 py-1 text-xs font-medium rounded transition ${
+                viewMode === 'list'
+                  ? 'bg-white dark:bg-slate-700 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}
+              onClick={() => setViewMode('list')}
+            >
+              📋 List
+            </button>
+            <button
+              className={`px-3 py-1 text-xs font-medium rounded transition ${
+                viewMode === 'timeline'
+                  ? 'bg-white dark:bg-slate-700 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}
+              onClick={() => setViewMode('timeline')}
+            >
+              📊 Timeline
+            </button>
+          </div>
+          <>
           <button 
             className="btn-secondary text-xs whitespace-nowrap" 
             onClick={() => setShowLocationSearch(!showLocationSearch)}
           >
             {showLocationSearch ? 'Close Search' : '📍 Search Places'}
           </button>
+          <button 
+            className="btn-secondary text-xs whitespace-nowrap" 
+            onClick={() => setShowTemplates(!showTemplates)}
+          >
+            {showTemplates ? 'Close Templates' : '🎯 Templates'}
+          </button>
           <button className="btn-secondary text-xs whitespace-nowrap" onClick={add}>
             + Add Activity
           </button>
         </div>
       </div>
+
+      {/* Template Activities */}
+      {showTemplates && (
+        <div className="glass-card p-4 space-y-2">
+          <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            Quick Templates
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {TEMPLATE_ACTIVITIES.map((template, idx) => (
+              <button
+                key={idx}
+                className="text-left px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm transition-colors"
+                onClick={() => addTemplate(template)}
+              >
+                <div className="font-medium">{template.title}</div>
+                <div className="text-xs text-slate-500">
+                  {template.time} • ${template.cost}
+                </div>
+              </button>
+            ))}
+          </div>
+          <div className="text-xs text-slate-500 italic mt-2">
+            💡 Tip: Templates are added without a date - you'll need to set the date manually
+          </div>
+        </div>
+      )}
 
       {/* Mapbox Location Search */}
       {showLocationSearch && (
@@ -402,7 +541,18 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
               {locationResults.map((feature, idx) => (
                 <button
                   key={idx}
-                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-sm"
+          viewMode === 'timeline' ? (
+        <ItineraryTimeline 
+          activities={filtered.map(a => ({
+            id: a.id,
+            title: a.title,
+            date: a.date,
+            time: a.time,
+            cost: a.cost,
+            duration: 1, // Default 1 hour, could be made configurable
+          }))}
+        />
+      ) :         className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-sm"
                   onClick={() => selectLocation(feature)}
                 >
                   <div className="font-medium">{feature.text}</div>
@@ -440,15 +590,20 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
                   {arr.map((a) => {
                     const i = items.findIndex(it => it.id === a.id);
                     const isSaving = savingItems.has(a.id);
+                    const hasConflict = conflicts.has(a.id);
                     const isRouteStop = a.title.startsWith('📍 ');
+                    const linkedStop = stops.find(s => s.id_loca === a.stopId);
+                    
                     return (
                       <div
                         key={a.id}
                         className={`
                           rounded-xl border p-3 space-y-2 relative
-                          ${isRouteStop 
-                            ? 'border-blue-300 bg-blue-50/70 dark:border-blue-700 dark:bg-blue-900/20' 
-                            : 'border-slate-200/60 bg-white/70 dark:border-slate-700 dark:bg-slate-800/70'
+                          ${hasConflict 
+                            ? 'border-amber-300 bg-amber-50/70 dark:border-amber-700 dark:bg-amber-900/20' 
+                            : isRouteStop 
+                              ? 'border-blue-300 bg-blue-50/70 dark:border-blue-700 dark:bg-blue-900/20' 
+                              : 'border-slate-200/60 bg-white/70 dark:border-slate-700 dark:bg-slate-800/70'
                           }
                         `}
                         draggable
@@ -467,6 +622,17 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
                           </div>
                         )}
                         
+                        {hasConflict && (
+                          <div className="flex items-center gap-2 mb-2 pb-2 border-b border-amber-200 dark:border-amber-800">
+                            <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 rounded">
+                              ⚠️ Time Conflict
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              Overlaps with another activity
+                            </span>
+                          </div>
+                        )}
+                        
                         {isRouteStop && (
                           <div className="flex items-center gap-2 mb-2 pb-2 border-b border-blue-200 dark:border-blue-800">
                             <span className="text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 rounded">
@@ -474,6 +640,14 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
                             </span>
                             <span className="text-xs text-slate-500">
                               Managed in Destination Stops panel
+                            </span>
+                          </div>
+                        )}
+                        
+                        {linkedStop && !isRouteStop && (
+                          <div className="flex items-center gap-2 mb-2 pb-2 border-b border-green-200 dark:border-green-800">
+                            <span className="text-xs font-medium text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/40 px-2 py-0.5 rounded">
+                              🔗 Linked to: {linkedStop.name_loca}
                             </span>
                           </div>
                         )}
@@ -506,13 +680,21 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
                         </div>
 
                         <div className="grid gap-2 md:grid-cols-2">
-                          <input 
-                            className="input" 
-                            placeholder="Location" 
-                            value={a.location} 
-                            onChange={e => update(i, 'location', e.target.value)}
-                            disabled={isRouteStop}
-                          />
+                          <div>
+                            <select 
+                              className="input w-full" 
+                              value={a.stopId || ''} 
+                              onChange={e => update(i, 'stopId', e.target.value)}
+                              disabled={isRouteStop}
+                            >
+                              <option value="">Select destination stop (optional)</option>
+                              {stops.map(stop => (
+                                <option key={stop.id_loca} value={stop.id_loca}>
+                                  📍 {stop.name_loca}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                           <input 
                             className="input" 
                             type="number" 
@@ -523,6 +705,15 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
                             disabled={isRouteStop}
                           />
                         </div>
+
+                        {!linkedStop && !isRouteStop && (
+                          <input 
+                            className="input" 
+                            placeholder="Location (or link to destination stop above)" 
+                            value={a.location} 
+                            onChange={e => update(i, 'location', e.target.value)}
+                          />
+                        )}
 
                         {(a.lng !== undefined && a.lat !== undefined) && (
                           <div className="text-xs text-slate-500">

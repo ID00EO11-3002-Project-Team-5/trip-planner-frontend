@@ -16,9 +16,13 @@ export function ExpenseForm({ tripId, tripMembers = [], onSubmit, onCancel, init
   const [title, setTitle] = useState(initialData?.title_expe || "");
   const [amount, setAmount] = useState(initialData?.amount_expe?.toString() || "");
   const [currency, setCurrency] = useState<'USD' | 'EUR' | 'GBP'>(initialData?.currency_expe || 'USD');
+  const [category, setCategory] = useState<string>(initialData?.category || 'Other');
   const [splitType, setSplitType] = useState<'equal' | 'custom'>('equal');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [customShares, setCustomShares] = useState<Record<string, string>>({});
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringFrequency, setRecurringFrequency] = useState<'daily' | 'weekly'>('daily');
+  const [recurringEndDate, setRecurringEndDate] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -69,17 +73,48 @@ export function ExpenseForm({ tripId, tripMembers = [], onSubmit, onCancel, init
       return;
     }
 
+    if (isRecurring && !recurringEndDate) {
+      setError("Please specify an end date for recurring expenses");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
     try {
-      await onSubmit({
+      const baseExpense: CreateExpensePayload = {
         id_trip: tripId,
         title_expe: title,
         amount_expe: amountNum,
         currency_expe: currency,
         shares: shares,
-      });
+      };
+
+      // Submit the first expense
+      await onSubmit(baseExpense);
+
+      // If recurring, create additional expenses
+      if (isRecurring && recurringEndDate) {
+        const startDate = new Date();
+        const endDate = new Date(recurringEndDate);
+        const dates: Date[] = [];
+
+        let currentDate = new Date(startDate);
+        currentDate.setDate(currentDate.getDate() + (recurringFrequency === 'daily' ? 1 : 7));
+
+        while (currentDate <= endDate) {
+          dates.push(new Date(currentDate));
+          currentDate.setDate(currentDate.getDate() + (recurringFrequency === 'daily' ? 1 : 7));
+        }
+
+        // Create additional expenses for each date
+        for (const date of dates) {
+          await onSubmit({
+            ...baseExpense,
+            title_expe: `${title} (${date.toLocaleDateString()})`,
+          });
+        }
+      }
     } catch (err: any) {
       setError(err.message || "Failed to save expense");
     } finally {
@@ -156,6 +191,59 @@ export function ExpenseForm({ tripId, tripMembers = [], onSubmit, onCancel, init
             <option value="GBP">GBP (£)</option>
           </select>
         </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1">Category</label>
+        <select
+          className="input"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+        >
+          <option value="Food">🍽️ Food & Dining</option>
+          <option value="Transport">🚗 Transport</option>
+          <option value="Lodging">🏨 Lodging</option>
+          <option value="Entertainment">🎭 Entertainment</option>
+          <option value="Shopping">🛍️ Shopping</option>
+          <option value="Other">📦 Other</option>
+        </select>
+      </div>
+
+      <div className="space-y-3">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isRecurring}
+            onChange={(e) => setIsRecurring(e.target.checked)}
+            className="w-4 h-4"
+          />
+          <span className="text-sm font-medium">Recurring Expense</span>
+        </label>
+
+        {isRecurring && (
+          <div className="grid grid-cols-2 gap-3 pl-6">
+            <div>
+              <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Frequency</label>
+              <select
+                className="input text-sm"
+                value={recurringFrequency}
+                onChange={(e) => setRecurringFrequency(e.target.value as 'daily' | 'weekly')}
+              >
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">End Date</label>
+              <input
+                type="date"
+                className="input text-sm"
+                value={recurringEndDate}
+                onChange={(e) => setRecurringEndDate(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div>

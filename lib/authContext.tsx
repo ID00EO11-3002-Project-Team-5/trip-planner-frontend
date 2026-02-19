@@ -26,7 +26,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Check active session on mount
     supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
-      setUser(data.session?.user ?? null);
+      // Verify token exists in localStorage before setting user
+      const token = localStorage.getItem('authToken');
+      if (token && data.session?.user) {
+        setUser(data.session.user);
+      } else {
+        setUser(null);
+        // Clear any stale session if token is missing
+        if (!token && data.session) {
+          supabase.auth.signOut();
+        }
+      }
       setLoading(false);
     }).catch((error: any) => {
       console.error('Error getting session:', error);
@@ -51,6 +61,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  // Monitor localStorage for token removal (from 401 errors in apiClient)
+  useEffect(() => {
+    const handleAuthLogout = () => {
+      // Token was removed due to 401 error, log out user
+      setUser(null);
+      if (supabase) {
+        supabase.auth.signOut();
+      }
+    };
+
+    // Listen for custom logout event from apiClient
+    window.addEventListener('auth:logout', handleAuthLogout as EventListener);
+    
+    return () => window.removeEventListener('auth:logout', handleAuthLogout as EventListener);
   }, []);
 
   // Monitor session expiration and auto-logout
