@@ -459,7 +459,8 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
             placeholder="Search activities" 
             value={search} 
             onChange={e => setSearch(e.target.value)} 
-          /div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+          />
+          <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
             <button
               className={`px-3 py-1 text-xs font-medium rounded transition ${
                 viewMode === 'list'
