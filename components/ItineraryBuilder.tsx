@@ -200,16 +200,6 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [locationSearch, showLocationSearch])
-
-  // Debounce location search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (showLocationSearch) {
-        searchLocations(locationSearch);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
   }, [locationSearch, showLocationSearch]);
 
   // Create destination stop from Mapbox result
@@ -223,11 +213,6 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
           lat: feature.center[1],
         },
       });
-    
-    // Re-detect conflicts when date or time changes
-    if (field === 'date' || field === 'time') {
-      detectConflicts(copy);
-    }
 
       // Add as new activity
       const newActivity: Activity = {
@@ -262,26 +247,17 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
 
   function update(i: number, field: keyof Activity, value: string | number) {
     const item = items[i];
-   
-
-  function addTemplate(template: typeof TEMPLATE_ACTIVITIES[0]) {
-    const newActivity: Activity = {
-      id: `temp-${Date.now()}`,
-      title: template.title,
-      date: '',  // User needs to set the date
-      time: template.time,
-      location: '',
-      cost: template.cost,
-      isNew: true,
-    };
-    setItems(prev => [...prev, newActivity]);
-    setShowTemplates(false);
-  } if (!item) return;
+    if (!item) return;
 
     const updated = { ...item, [field]: value };
     const copy = [...items];
     copy[i] = updated;
     setItems(copy);
+
+    // Re-detect conflicts when date or time changes
+    if (field === 'date' || field === 'time') {
+      detectConflicts(copy);
+    }
 
     // Clear existing timeout
     const existingTimeout = saveTimeouts.current.get(item.id);
@@ -296,6 +272,20 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
     }, 2000);
 
     saveTimeouts.current.set(item.id, timeout);
+  }
+
+  function addTemplate(template: typeof TEMPLATE_ACTIVITIES[0]) {
+    const newActivity: Activity = {
+      id: `temp-${Date.now()}`,
+      title: template.title,
+      date: '',  // User needs to set the date
+      time: template.time,
+      location: '',
+      cost: template.cost,
+      isNew: true,
+    };
+    setItems(prev => [...prev, newActivity]);
+    setShowTemplates(false);
   }
 
   function add() {
