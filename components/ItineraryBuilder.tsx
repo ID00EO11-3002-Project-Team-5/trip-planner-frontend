@@ -75,6 +75,19 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
       setLoading(true);
       const itineraryItems = await apiClient.itinerary.getByTrip(tripId);
       
+      const activities = itineraryItems.map(item => ({
+        id: item.id_itit,
+        title: item.title_itit,
+        date: item.date_itit,
+        time: item.time_itit || '',
+        location: item.location_itit || item.formal_location?.name_loca || '',
+        cost: item.cost_itit || undefined,
+        lng: item.formal_location?.coordinates?.lng,
+        lat: item.formal_location?.coordinates?.lat,
+        stopId: item.id_loca || undefined,
+      }));
+
+      setItems(activities);
       detectConflicts(activities);
     } catch (error) {
       console.error('Failed to load itinerary:', error);
@@ -106,20 +119,7 @@ export function ItineraryBuilder({ tripId }: { tripId: string }) {
       }
     }
     
-    setConflicts(conflictSet);   time: item.time_itit || '',
-        location: item.location_itit || item.formal_location?.name_loca || '',
-        cost: item.cost_itit || undefined,
-        lng: item.formal_location?.coordinates?.lng,
-        lat: item.formal_location?.coordinates?.lat,
-        stopId: item.id_loca || undefined,
-      }));
-
-      setItems(activities);
-    } catch (error) {
-      console.error('Failed to load itinerary:', error);
-    } finally {
-      setLoading(false);
-    }
+    setConflicts(conflictSet);
   }
 
   // Debounced save for edited items
