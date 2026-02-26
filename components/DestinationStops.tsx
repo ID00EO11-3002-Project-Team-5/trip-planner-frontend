@@ -39,7 +39,7 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
       const items = await apiClient.itinerary.getByTrip(tripId);
       setAllItems(items);
       
-      // Filter route stops (items with 📍 prefix) and convert to RouteStop format
+      // Filter route stops
       const routeStops: RouteStop[] = items
         .filter(item => item.title_itit.startsWith(ROUTE_STOP_PREFIX))
         .sort((a, b) => a.position_itit - b.position_itit)
@@ -63,7 +63,6 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
       
       setStops(routeStops);
       
-      // Dispatch event to update map routes (convert to old format for compatibility)
       try {
         const stopsForMap = routeStops.map(s => ({
           id_loca: s.id,
@@ -117,7 +116,6 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
 
   async function addStop(feature: MapboxFeature) {
     try {
-      // Get the next position (after all existing items)
       const maxPosition = Math.max(0, ...allItems.map(i => i.position_itit));
       const nextPosition = maxPosition + 1;
       
@@ -129,7 +127,7 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
       const newItem = await apiClient.itinerary.create({
         id_trip: tripId,
         title_itit: ROUTE_STOP_PREFIX + (feature.text || feature.place_name),
-        date_itit: new Date().toISOString().split('T')[0], // Today's date
+        date_itit: new Date().toISOString().split('T')[0],
         location_itit: JSON.stringify(coordinates),
         position_itit: nextPosition,
         id_loca: null,
@@ -148,7 +146,6 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
       setLocationResults([]);
       setShowSearch(false);
 
-      // Dispatch map event to show marker (use old field names for compatibility)
       try {
         window.dispatchEvent(new CustomEvent('destination-added', { 
           detail: { 
@@ -158,7 +155,6 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
         }));
       } catch (_) {}
       
-      // Update the full stops list for route drawing (convert to old format)
       const updatedStops = [...stops, newStop].map(s => ({
         id_loca: s.id,
         coordinates: s.coordinates
@@ -179,7 +175,6 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
       setStops(prev => prev.filter(s => s.id !== stopId));
       setAllItems(prev => prev.filter(i => i.id_itit !== stopId));
 
-      // Dispatch map event to remove marker
       try {
         window.dispatchEvent(new CustomEvent('destination-removed', { 
           detail: { stopId } 
@@ -190,7 +185,8 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
     }
   }
 
-  // Drag and drop handlers
+  //drag and drop function
+
   function handleDragStart(e: React.DragEvent, stopId: string) {
     setDraggedId(stopId);
     e.dataTransfer.effectAllowed = 'move';
@@ -217,12 +213,10 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
       return;
     }
 
-    // Reorder locally
     const newStops = [...stops];
     const [movedStop] = newStops.splice(draggedIndex, 1);
     newStops.splice(targetIndex, 0, movedStop);
 
-    // Update positions for all route stops only
     const updates = newStops.map((stop, index) => ({
       id_itit: stop.id,
       position_itit: stop.position + (index - stops.findIndex(s => s.id === stop.id)),
@@ -231,7 +225,6 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
     setStops(newStops);
     setDraggedId(null);
 
-    // Dispatch event to update map routes with new order (convert to old format)
     try {
       const stopsForMap = newStops.map(s => ({
         id_loca: s.id,
@@ -242,14 +235,11 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
       }));
     } catch (_) {}
 
-    // Save to backend using itinerary reorder
     try {
       await apiClient.itinerary.reorder(tripId, updates);
-      // Reload to get updated positions
       loadStops();
     } catch (error) {
       console.error('Failed to reorder stops:', error);
-      // Reload on error
       loadStops();
     }
   }
@@ -269,8 +259,6 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
   }
 
   function getLinkedActivities(stopId: string): ItineraryItem[] {
-    // Find activities that are NOT route stops and don't have id_loca set
-    // (we'll use proximity or manual linking in the future)
     return allItems.filter(item => 
       !item.title_itit.startsWith(ROUTE_STOP_PREFIX) && 
       item.id_loca === stopId
@@ -320,17 +308,17 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
       .join('');
 
     const gpx = `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Trip Planner" xmlns="http://www.topografix.com/GPX/1/1">
-  <metadata>
-    <name>Trip Route</name>
-    <desc>Destination stops route</desc>
-  </metadata>${waypoints}
-  <trk>
-    <name>Route</name>
-    <trkseg>${trackPoints}
-    </trkseg>
-  </trk>
-</gpx>`;
+      <gpx version="1.1" creator="Trip Planner" xmlns="http://www.topografix.com/GPX/1/1">
+        <metadata>
+          <name>Trip Route</name>
+          <desc>Destination stops route</desc>
+        </metadata>${waypoints}
+        <trk>
+          <name>Route</name>
+          <trkseg>${trackPoints}
+          </trkseg>
+        </trk>
+      </gpx>`;
 
     downloadFile(gpx, 'trip-route.gpx', 'application/gpx+xml');
   }
@@ -358,18 +346,18 @@ export function DestinationStops({ tripId, onStopSelected }: DestinationStopsPro
       .join(' ');
 
     const kml = `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>Trip Route</name>
-    <description>Destination stops route</description>${placemarks}
-    <Placemark>
-      <name>Route</name>
-      <LineString>
-        <coordinates>${lineCoordinates}</coordinates>
-      </LineString>
-    </Placemark>
-  </Document>
-</kml>`;
+      <kml xmlns="http://www.opengis.net/kml/2.2">
+        <Document>
+          <name>Trip Route</name>
+          <description>Destination stops route</description>${placemarks}
+          <Placemark>
+            <name>Route</name>
+            <LineString>
+              <coordinates>${lineCoordinates}</coordinates>
+            </LineString>
+          </Placemark>
+        </Document>
+      </kml>`;
 
     downloadFile(kml, 'trip-route.kml', 'application/vnd.google-earth.kml+xml');
   }

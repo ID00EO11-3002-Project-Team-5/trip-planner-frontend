@@ -1,10 +1,3 @@
-/**
- * API Client for Trip Planner Backend
- * 
- * Handles all HTTP requests to the backend API with authentication
- * Automatically switches between local development and production
- */
-
 // Automatically detect environment
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -25,7 +18,6 @@ interface ApiOptions {
 async function apiCall<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
   const { method = 'GET', body, headers = {} } = options;
 
-  // Get auth token from localStorage or your auth provider
   const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
 
   const config: RequestInit = {
@@ -231,8 +223,8 @@ export interface ItineraryItem {
   id_itit: string;
   id_trip: string;
   title_itit: string;
-  date_itit: string; // YYYY-MM-DD
-  time_itit?: string; // HH:mm:ss
+  date_itit: string;
+  time_itit?: string;
   location_itit?: string | null;
   cost_itit?: number | null;
   position_itit: number;

@@ -1,22 +1,10 @@
-/**
- * Geographic distance and travel time utilities
- */
-
-/**
- * Calculate distance between two coordinates using Haversine formula
- * @param lat1 Latitude of first point
- * @param lon1 Longitude of first point
- * @param lat2 Latitude of second point
- * @param lon2 Longitude of second point
- * @returns Distance in kilometers
- */
 export function calculateDistance(
   lat1: number,
   lon1: number,
   lat2: number,
   lon2: number
 ): number {
-  const R = 6371; // Earth's radius in kilometers
+  const R = 6371;
   const dLat = toRadians(lat2 - lat1);
   const dLon = toRadians(lon2 - lon1);
   
@@ -33,26 +21,16 @@ export function calculateDistance(
   return distance;
 }
 
-/**
- * Convert degrees to radians
- */
 function toRadians(degrees: number): number {
   return (degrees * Math.PI) / 180;
 }
 
-/**
- * Estimate travel time based on distance and transport mode
- * @param distanceKm Distance in kilometers
- * @param mode Transport mode (driving, walking, cycling)
- * @returns Object with hours and minutes
- */
 export function estimateTravelTime(
   distanceKm: number,
   mode: 'driving' | 'walking' | 'cycling' = 'driving'
 ): { hours: number; minutes: number; totalMinutes: number } {
-  // Average speeds in km/h
   const speeds = {
-    driving: 60, // City driving average
+    driving: 60,
     walking: 5,
     cycling: 15,
   };
@@ -68,9 +46,6 @@ export function estimateTravelTime(
   };
 }
 
-/**
- * Format travel time for display
- */
 export function formatTravelTime(hours: number, minutes: number): string {
   if (hours > 0 && minutes > 0) {
     return `${hours}h ${minutes}m`;
@@ -82,9 +57,6 @@ export function formatTravelTime(hours: number, minutes: number): string {
   return '< 1m';
 }
 
-/**
- * Format distance for display
- */
 export function formatDistance(km: number): string {
   if (km < 1) {
     return `${Math.round(km * 1000)}m`;
@@ -94,9 +66,6 @@ export function formatDistance(km: number): string {
   return `${Math.round(km)}km`;
 }
 
-/**
- * Calculate total route distance for a sequence of stops
- */
 export function calculateRouteDistance(
   stops: Array<{ lat: number; lng: number }>
 ): number {
